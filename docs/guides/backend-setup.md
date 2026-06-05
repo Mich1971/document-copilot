@@ -52,6 +52,39 @@ uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 ```
 
+## Imports (`from app...`)
+
+`backend/app` is installed as an editable package by `uv sync`, so `from app...` imports work from uvicorn, direct Python execution, tests, and Jupyter kernels that use the backend venv.
+
+The `[build-system]` and `[tool.hatch.build.targets.wheel]` sections in `backend/pyproject.toml` tell uv how to install the local `app/` package. Without that package install, imports depend on the current working directory or a manually configured `PYTHONPATH`, which is fragile in notebooks and IDE run buttons.
+
+Preferred API server command:
+
+```bash
+cd backend
+uv run uvicorn app.main:app --reload
+```
+
+Direct file execution also works:
+
+```bash
+cd backend
+uv run python app/main.py
+```
+
+For Jupyter, install and select the backend kernel:
+
+```bash
+cd backend
+uv run python -m ipykernel install --user --name document-copilot-backend --display-name "Document Copilot Backend"
+```
+
+Then notebooks can import backend modules:
+
+```python
+from app.config import settings
+```
+
 ## Sample SEC data
 
 From the repo root (stdlib-only script, no backend env needed):
