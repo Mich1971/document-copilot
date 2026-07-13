@@ -10,7 +10,7 @@ This file is the source of truth for any coding agent (Claude Code, Cursor, Code
 - **Migrations:** SQLAlchemy models + Alembic from the backend
 - **Retrieval:** Supabase `pgvector` + Postgres full-text search
 - **Auth:** Supabase Auth
-- **Hosting:** Railway (backend service + frontend service)
+- **Hosting:**  Oracle Cloud Infrastructure (backend service + frontend service)
 - **LLM + embeddings:** OpenAI
 
 Stack is locked unless explicitly changed. Don't propose alternatives without a stated reason.
@@ -26,6 +26,8 @@ document-copilot/
 ├── backend/            # FastAPI service (see backend/AGENTS.md)
 └── frontend/           # React SPA (see frontend/AGENTS.md)
 ```
+
+
 
 ## Dependency policy
 
@@ -65,3 +67,4 @@ Fail fast on startup if required config is missing. No silent fallbacks that hid
 - **No feature flags** added speculatively.
 - **Comments:** explain *why* when non-obvious, never *what*. Remove stale TODOs.
 - **Keep files focused.** Prefer small modules.
+

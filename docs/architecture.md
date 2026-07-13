@@ -14,7 +14,7 @@ The best opening diagram is a service-level view that shows the two core paths: 
 flowchart LR
     user[Analyst] --> browser[Browser<br/>React chat app]
 
-    subgraph railway[Railway]
+    subgraph oci[OCI]
         frontend[Frontend service<br/>Vite build]
         backend[Backend service<br/>FastAPI + PydanticAI]
     end
@@ -42,6 +42,10 @@ flowchart LR
     ingestion -->|store documents + chunks| db
 ```
 
+
+
+
+
 ## Architectural Goals
 
 - Keep the browser thin: it renders chat state, manages the user's Supabase session, and streams assistant responses.
@@ -50,6 +54,8 @@ flowchart LR
 - Use Supabase `pgvector` for semantic retrieval and Postgres full-text search for keyword retrieval.
 - Make the LLM path typed and testable by using PydanticAI agents with explicit dependencies, outputs, and tool boundaries.
 - Preserve a simple deployment model on Railway: one frontend service, one stateless backend service, and hosted Supabase.
+
+
 
 ## Stack
 
@@ -80,6 +86,8 @@ Persistence:
 - Supabase Auth for email login
 - Supabase Postgres for user records, chat threads, chat messages, source documents, chunks, embeddings, full-text search vectors, and citation metadata
 
+
+
 ## System Boundaries
 
 The frontend is responsible for user interaction, local UI state, and sending the authenticated user's request to the backend. It should never hold service-role credentials, run retrieval logic, call OpenAI directly, or write privileged records to Supabase.
@@ -100,6 +108,8 @@ Supabase is responsible for authentication and durable product state. Browser ac
 8. A PydanticAI agent retrieves relevant document chunks, generates a grounded answer, and returns typed output containing answer text and citations.
 9. FastAPI streams assistant message parts back to the browser in the format expected by the AI SDK client.
 10. FastAPI persists the final user message, assistant message, cited chunks, and usage metadata to Supabase.
+
+
 
 ## Frontend Chat Layer
 
@@ -238,6 +248,8 @@ Recommended backend units:
 - `app/database/chats.py` stores and reads chat threads, messages, and citation records.
 - `app/database/documents.py` stores and reads source documents, chunks, embeddings, and full-text search data.
 
+
+
 ## Streaming Contract
 
 The frontend should receive incremental assistant output, not wait for a full answer. FastAPI should expose a streaming endpoint that emits AI SDK-compatible message parts.
@@ -267,6 +279,8 @@ Streaming responsibilities:
 - Send citation/source metadata as structured parts once available.
 - Send clear error events for authentication failures, missing threads, retrieval failures, and grounding failures.
 - Persist only after the assistant run completes successfully, unless a separate partial-message model is deliberately introduced later.
+
+
 
 ## Data Model
 
@@ -369,12 +383,12 @@ Do not read environment variables directly from components, route handlers, or s
 
 ## Deployment Shape
 
-Railway should run two services:
+Oracle Cloud Infrastructure (OCI) should run two services:
 
 - Frontend: static Vite build served as a web app.
 - Backend: FastAPI service running Uvicorn.
 
-Supabase remains hosted and stores the durable retrieval data. The Railway backend can stay stateless because document chunks, embeddings, full-text search vectors, chats, and citations all live in Supabase Postgres. Raw downloaded filings remain gitignored local ingestion inputs unless a later workflow stores them in object storage.
+Supabase remains hosted and stores the durable retrieval data. The OCI backend can stay stateless because document chunks, embeddings, full-text search vectors, chats, and citations all live in Supabase Postgres. Raw downloaded filings remain gitignored local ingestion inputs unless a later workflow stores them in object storage.
 
 ## Implementation Sequence
 
@@ -392,6 +406,8 @@ Supabase remains hosted and stores the durable retrieval data. The Railway backe
 12. Add citation validation and grounding enforcement.
 13. Add final UI for citations, source passages, empty states, and errors.
 
+
+
 ## Non-Goals
 
 - No Next.js, SSR, server components, or frontend route handlers.
@@ -400,3 +416,4 @@ Supabase remains hosted and stores the durable retrieval data. The Railway backe
 - No multi-tenant architecture.
 - No external market/news data.
 - No trading recommendations or generated stock picks.
+
