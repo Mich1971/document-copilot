@@ -1,4 +1,4 @@
-from app.database.base import Base
+from app.database.base import Base, get_session
 from app.database.models import (
     ChatMessage,
     ChatThread,
@@ -23,4 +23,5 @@ __all__ = [
     "User",
     "create_user_client",
     "get_service_role_client",
+    "get_session",
 ]

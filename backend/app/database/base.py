@@ -1,7 +1,10 @@
 from datetime import datetime
 
 from sqlalchemy import DateTime, func
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+
+from app.config import settings
 
 
 class Base(DeclarativeBase):
@@ -20,3 +23,25 @@ class TimestampMixin:
         onupdate=func.now(),
         nullable=False,
     )
+
+
+_engine = create_async_engine(
+    settings.sqlalchemy_database_url,
+    echo=False,
+    pool_pre_ping=True,
+    pool_size=10,
+    max_overflow=20,
+)
+
+SessionLocal = sessionmaker(
+    _engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autoflush=False,
+)
+
+
+async def get_session() -> AsyncSession:
+    """FastAPI dependency that provides a database session."""
+    async with SessionLocal() as session:
+        yield session
