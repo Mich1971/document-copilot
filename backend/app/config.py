@@ -20,13 +20,6 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
-    #supabase_url: HttpUrl
-    #supabase_anon_key: SecretStr
-    #supabase_service_role_key: SecretStr
-
-    #database_url: SecretStr
-
-    #openai_api_key: SecretStr
     supabase_url: str
     supabase_anon_key: str
     supabase_service_role_key: str
