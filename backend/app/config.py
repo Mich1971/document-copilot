@@ -17,16 +17,22 @@ class Settings(BaseSettings):
         env_file=_BACKEND_DIR / ".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
-        extra="ignore",
+        extra="ignore"
     )
 
-    supabase_url: HttpUrl
-    supabase_anon_key: SecretStr
-    supabase_service_role_key: SecretStr
+    #supabase_url: HttpUrl
+    #supabase_anon_key: SecretStr
+    #supabase_service_role_key: SecretStr
 
-    database_url: SecretStr
+    #database_url: SecretStr
 
+    #openai_api_key: SecretStr
+    supabase_url: str
+    supabase_anon_key: str
+    supabase_service_role_key: str
+    database_url: str
     openai_api_key: SecretStr
+
     openai_embedding_model: str = "text-embedding-3-small"
     openai_embedding_dimensions: int = Field(default=1536, ge=1)
 
@@ -34,6 +40,18 @@ class Settings(BaseSettings):
         default="http://localhost:5173",
         validation_alias="ALLOWED_ORIGINS",
     )
+
+    # Normalize Supabase-style URLs for SQLAlchemy + psycopg v3.
+    @computed_field
+    @property
+    def sqlalchemy_database_url(self) -> str:
+        """Normalize Supabase-style URLs for SQLAlchemy + psycopg v3."""
+        url = self.database_url
+        if url.startswith("postgresql://"):
+            return url.replace("postgresql://", "postgresql+psycopg://", 1)
+        if url.startswith("postgres://"):
+            return url.replace("postgres://", "postgresql+psycopg://", 1)
+        return url
 
     @computed_field
     @property
@@ -45,7 +63,7 @@ def _mirror_sdk_env(settings: Settings) -> None:
     # Third-party SDKs read os.environ directly; settings remain the source of truth.
     os.environ["OPENAI_API_KEY"] = settings.openai_api_key.get_secret_value()
 
-
+# Cache the settings object to avoid re-reading the environment variables on each request.
 @lru_cache
 def get_settings() -> Settings:
     settings = Settings()
