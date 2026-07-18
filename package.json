@@ -1,0 +1,9 @@
+{
+	"dependencies": {
+		"@ai-sdk/react": "^4.0.32",
+		"@radix-ui/react-scroll-area": "^1.2.14",
+		"ai": "^7.0.29",
+		"date-fns": "^4.4.0",
+		"eslint": "^10.7.0"
+	}
+}

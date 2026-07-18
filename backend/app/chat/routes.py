@@ -4,6 +4,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import CurrentUser, get_current_user
@@ -16,9 +17,12 @@ from app.chat.persistence import (
     list_chat_threads,
 )
 from app.chat.schemas import (
+    AIMessage,
     CreateThreadRequest,
     MessageSchema,
     SendMessageRequest,
+    StreamChatRequest,
+    StreamingMessageChunk,
     ThreadDetailSchema,
     ThreadSchema,
 )
@@ -145,3 +149,83 @@ async def send_message(
         created_at=user_message.created_at,
         sequence=user_message.sequence,
     )
+
+
+async def _stub_assistant_stream(thread_id: uuid.UUID, user_content: str):
+    """Generate a stubbed assistant streaming response."""
+    # Simulate streaming with a simple response
+    response = f"Echo: {user_content}"
+    # Yield start chunk
+    yield StreamingMessageChunk(type="start", content="", message_id=None)
+    # Yield content chunks (simulate streaming)
+    for char in response:
+        yield StreamingMessageChunk(type="content", content=char, message_id=None)
+    # Yield end chunk
+    yield StreamingMessageChunk(type="end", content="", message_id=None)
+
+
+@router.post("/stream")
+async def stream_chat(
+    body: StreamChatRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> StreamingResponse:
+    """
+    Stream a chat response (AI SDK compatible).
+    Accepts AI SDK message format, streams a stubbed assistant reply.
+    Persists user + assistant messages after stream completes.
+    """
+    await get_or_create_user(session, current_user.id, current_user.email)
+
+    # Extract the last user message
+    user_messages = [m for m in body.messages if m.role == "user"]
+    if not user_messages:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No user message found",
+        )
+    last_user_message = user_messages[-1]
+
+    # Determine thread: use provided thread_id or create new
+    thread_id = body.thread_id
+    if thread_id:
+        # Verify thread ownership
+        thread = await get_chat_thread(session, thread_id, current_user.id)
+        if not thread:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Thread not found or access denied",
+            )
+    else:
+        # Create new thread with first user message as title
+        title = last_user_message.content[:50] + ("..." if len(last_user_message.content) > 50 else "")
+        thread = await create_chat_thread(session, current_user.id, title)
+        thread_id = thread.id
+
+    # Persist user message
+    user_msg = await add_message(session, thread_id, MessageRole.USER, last_user_message.content)
+    await session.commit()
+
+    # Stream assistant response
+    async def stream_generator():
+        full_response = ""
+        async for chunk in _stub_assistant_stream(thread_id, last_user_message.content):
+            full_response += chunk.content or ""
+            # Convert to AI SDK data stream format
+            if chunk.type == "start":
+                yield f'0:"{chunk.content}"\n'
+            elif chunk.type == "content":
+                yield f'0:"{chunk.content}"\n'
+            elif chunk.type == "end":
+                yield 'd:{"finishReason":"stop"}\n'
+
+        # Persist assistant message after streaming
+        assistant_msg = await add_message(session, thread_id, MessageRole.ASSISTANT, full_response)
+        await session.commit()
+
+    return StreamingResponse(
+        stream_generator(),
+        media_type="text/plain; charset=utf-8",
+    )
+
+

@@ -50,3 +50,17 @@ class StreamingMessageChunk(BaseModel):
     type: str  # "start", "content", "end"
     content: str | None = None
     message_id: uuid.UUID | None = None
+
+
+class AIMessage(BaseModel):
+    """AI SDK compatible message format."""
+
+    role: str  # "user" | "assistant" | "system"
+    content: str
+
+
+class StreamChatRequest(BaseModel):
+    """Request body for streaming chat endpoint."""
+
+    messages: list[AIMessage]
+    thread_id: uuid.UUID | None = None

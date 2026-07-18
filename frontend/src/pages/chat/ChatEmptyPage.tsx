@@ -8,15 +8,15 @@ import { EXAMPLE_QUESTIONS } from '@/lib/suggestions'
 
 export function ChatEmptyPage() {
   const navigate = useNavigate()
-  const { createNewThread } = useThreads()
+  const { addThread } = useThreads()
   const [isStarting, setIsStarting] = useState(false)
 
   async function startConversation(prompt?: string) {
     if (isStarting) return
     setIsStarting(true)
     try {
-      const id = await createNewThread()
-      navigate(`/chats/${id}`, prompt ? { state: { initialPrompt: prompt } } : undefined)
+      const newThread = await addThread(prompt ? prompt.slice(0, 50) : 'New chat')
+      navigate(`/chats/${newThread.id}`, prompt ? { state: { initialPrompt: prompt } } : undefined)
     } finally {
       setIsStarting(false)
     }

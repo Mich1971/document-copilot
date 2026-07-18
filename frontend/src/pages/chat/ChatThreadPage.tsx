@@ -76,7 +76,7 @@ function ChatThreadView({ threadId, initialMessages }: ChatThreadViewProps) {
 
       <SourcePassageSheet
         citation={selectedCitation}
-        onOpenChange={(open) => {
+        onOpenChange={(open: boolean) => {
           if (!open) setSelectedCitation(null)
         }}
       />
