@@ -32,35 +32,53 @@ class ThreadSchema(BaseModel):
         from_attributes = True
 
 
+# --- AI SDK UIMessage wire format ---
+
+class UITextPart(BaseModel):
+    type: str = "text"
+    text: str
+
+
+class UIMessageOut(BaseModel):
+    """AI SDK UIMessage shape expected by the frontend chat primitives."""
+    id: str
+    role: str
+    parts: list[UITextPart]
+    created_at: datetime | None = None
+
+    @classmethod
+    def from_db(cls, msg: object) -> "UIMessageOut":
+        """Convert a ChatMessage ORM row to UIMessage wire format."""
+        from app.database.models.chat_message import ChatMessage
+        row: ChatMessage = msg  # type: ignore[assignment]
+        text = row.content or ""
+        return cls(
+            id=str(row.id),
+            role=row.role.value,
+            parts=[UITextPart(type="text", text=text)],
+            created_at=row.created_at,
+        )
+
+
 class ThreadDetailSchema(ThreadSchema):
-    messages: list[MessageSchema] = Field(default_factory=list)
+    messages: list[UIMessageOut] = Field(default_factory=list)
 
 
 class CreateThreadRequest(BaseModel):
     title: str = Field(default="New chat", min_length=1, max_length=255)
 
 
-class SendMessageRequest(BaseModel):
-    content: str = Field(min_length=1, max_length=8000)
-
-
-class StreamingMessageChunk(BaseModel):
-    """A chunk of a streaming message response."""
-
-    type: str  # "start", "content", "end"
-    content: str | None = None
-    message_id: uuid.UUID | None = None
-
-
 class AIMessage(BaseModel):
-    """AI SDK compatible message format."""
-
+    """AI SDK message format sent by the frontend transport."""
     role: str  # "user" | "assistant" | "system"
     content: str
 
 
 class StreamChatRequest(BaseModel):
-    """Request body for streaming chat endpoint."""
+    """Request body for streaming chat endpoint.
 
+    thread_id is required — the frontend always creates a thread first via
+    POST /chats/threads before opening a stream.
+    """
     messages: list[AIMessage]
-    thread_id: uuid.UUID | None = None
+    thread_id: uuid.UUID
