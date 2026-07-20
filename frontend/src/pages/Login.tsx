@@ -31,7 +31,7 @@ export function Login() {
       return
     }
 
-    navigate('/dashboard', { replace: true })
+    navigate('/chats', { replace: true })
   }
 
   return (
