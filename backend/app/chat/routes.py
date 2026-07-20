@@ -1,9 +1,9 @@
 """Chat API routes."""
 
-import logging
+import json
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,27 +13,23 @@ from app.chat.persistence import (
     create_chat_thread,
     get_chat_thread,
     get_or_create_user,
-    get_thread_messages,
     list_chat_threads,
+    persist_assistant_reply,
 )
 from app.chat.schemas import (
-    AIMessage,
     CreateThreadRequest,
-    MessageSchema,
-    SendMessageRequest,
     StreamChatRequest,
-    StreamingMessageChunk,
     ThreadDetailSchema,
     ThreadSchema,
+    UIMessageOut,
 )
 from app.database.base import get_session
 from app.database.models.message_role import MessageRole
 
 router = APIRouter(prefix="/chats", tags=["chats"])
-logger = logging.getLogger(__name__)
 
 
-@router.post("/threads", response_model=ThreadSchema)
+@router.post("/threads", response_model=ThreadSchema, status_code=status.HTTP_201_CREATED)
 async def create_thread(
     body: CreateThreadRequest,
     current_user: CurrentUser = Depends(get_current_user),
@@ -42,7 +38,6 @@ async def create_thread(
     """Create a new chat thread."""
     # Ensure user row exists
     user = await get_or_create_user(session, current_user.id, current_user.email)
-    logger.info("User %s created thread", user.email)
 
     # Create thread
     thread = await create_chat_thread(session, user.id, body.title)
@@ -85,7 +80,7 @@ async def get_thread(
     current_user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> ThreadDetailSchema:
-    """Get a chat thread with all its messages."""
+    """Get a chat thread with all its messages in AI SDK UIMessage shape."""
     await get_or_create_user(session, current_user.id, current_user.email)
 
     thread = await get_chat_thread(session, thread_id, current_user.id)
@@ -95,16 +90,7 @@ async def get_thread(
             detail="Thread not found",
         )
 
-    messages = [
-        MessageSchema(
-            id=msg.id,
-            role=msg.role,
-            content=msg.content,
-            created_at=msg.created_at,
-            sequence=msg.sequence,
-        )
-        for msg in thread.messages
-    ]
+    messages = [UIMessageOut.from_db(msg) for msg in thread.messages]
 
     return ThreadDetailSchema(
         id=thread.id,
@@ -116,64 +102,31 @@ async def get_thread(
     )
 
 
-@router.post("/threads/{thread_id}/messages", response_model=MessageSchema)
-async def send_message(
-    thread_id: uuid.UUID,
-    body: SendMessageRequest,
-    current_user: CurrentUser = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
-) -> MessageSchema:
-    """Send a message to a chat thread."""
-    await get_or_create_user(session, current_user.id, current_user.email)
+async def _stream_assistant_reply(user_content: str):
+    """Generate a stubbed assistant streaming response.
 
-    # Verify thread ownership
-    thread = await get_chat_thread(session, thread_id, current_user.id)
-    if not thread:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Thread not found",
-        )
-
-    logger.info("User %s sending message in thread %s", current_user.email, thread_id)
-
-    # Add user message
-    user_message = await add_message(
-        session, thread_id, MessageRole.USER, body.content
-    )
-    await session.commit()
-
-    return MessageSchema(
-        id=user_message.id,
-        role=user_message.role,
-        content=user_message.content,
-        created_at=user_message.created_at,
-        sequence=user_message.sequence,
-    )
-
-
-async def _stub_assistant_stream(thread_id: uuid.UUID, user_content: str):
-    """Generate a stubbed assistant streaming response."""
-    # Simulate streaming with a simple response
-    response = f"Echo: {user_content}"
-    # Yield start chunk
-    yield StreamingMessageChunk(type="start", content="", message_id=None)
-    # Yield content chunks (simulate streaming)
-    for char in response:
-        yield StreamingMessageChunk(type="content", content=char, message_id=None)
-    # Yield end chunk
-    yield StreamingMessageChunk(type="end", content="", message_id=None)
+    Yields (chunk_type, text) tuples that the route maps to AI SDK NDJSON.
+    """
+    reply = f"Echo: {user_content}"
+    yield ("start", "")
+    for word in reply.split(" "):
+        yield ("delta", word + " ")
+    yield ("end", "")
 
 
 @router.post("/stream")
 async def stream_chat(
     body: StreamChatRequest,
+    background_tasks: BackgroundTasks,
     current_user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> StreamingResponse:
     """
-    Stream a chat response (AI SDK compatible).
-    Accepts AI SDK message format, streams a stubbed assistant reply.
-    Persists user + assistant messages after stream completes.
+    Stream a chat response in the AI SDK Data Stream Protocol (NDJSON).
+
+    Accepts AI SDK message format, streams a stubbed assistant reply, and
+    persists the user message (before streaming) and the assistant message
+    (after streaming completes, via a background task).
     """
     await get_or_create_user(session, current_user.id, current_user.email)
 
@@ -186,46 +139,46 @@ async def stream_chat(
         )
     last_user_message = user_messages[-1]
 
-    # Determine thread: use provided thread_id or create new
-    thread_id = body.thread_id
-    if thread_id:
-        # Verify thread ownership
-        thread = await get_chat_thread(session, thread_id, current_user.id)
-        if not thread:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Thread not found or access denied",
-            )
-    else:
-        # Create new thread with first user message as title
-        title = last_user_message.content[:50] + ("..." if len(last_user_message.content) > 50 else "")
-        thread = await create_chat_thread(session, current_user.id, title)
-        thread_id = thread.id
+    # thread_id is required (frontend creates the thread first). Enforce ownership.
+    thread = await get_chat_thread(session, body.thread_id, current_user.id)
+    if not thread:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Thread not found or access denied",
+        )
 
-    # Persist user message
-    user_msg = await add_message(session, thread_id, MessageRole.USER, last_user_message.content)
+    # Persist the user message up front, committed before streaming.
+    await add_message(session, body.thread_id, MessageRole.USER, last_user_message.content)
     await session.commit()
 
-    # Stream assistant response
-    async def stream_generator():
-        full_response = ""
-        async for chunk in _stub_assistant_stream(thread_id, last_user_message.content):
-            full_response += chunk.content or ""
-            # Convert to AI SDK data stream format
-            if chunk.type == "start":
-                yield f'0:"{chunk.content}"\n'
-            elif chunk.type == "content":
-                yield f'0:"{chunk.content}"\n'
-            elif chunk.type == "end":
-                yield 'd:{"finishReason":"stop"}\n'
+    assistant_id = uuid.uuid4()
+    buffer: list[str] = []
 
-        # Persist assistant message after streaming
-        assistant_msg = await add_message(session, thread_id, MessageRole.ASSISTANT, full_response)
-        await session.commit()
+    async def stream_generator():
+        async for chunk_type, text in _stream_assistant_reply(last_user_message.content):
+            if chunk_type == "start":
+                yield _chunk("text-start", assistant_id)
+            elif chunk_type == "delta":
+                buffer.append(text)
+                yield _chunk("text-delta", assistant_id, text)
+            elif chunk_type == "end":
+                yield _chunk("text-end", assistant_id)
+        yield "\n"
+
+    async def _save_assistant() -> None:
+        await persist_assistant_reply(body.thread_id, "".join(buffer))
+
+    background_tasks.add_task(_save_assistant)
 
     return StreamingResponse(
         stream_generator(),
-        media_type="text/plain; charset=utf-8",
+        media_type="application/x-ndjson",
     )
 
 
+def _chunk(chunk_type: str, message_id: uuid.UUID, delta: str | None = None) -> str:
+    """Serialize an AI SDK UIMessageChunk to a single NDJSON line."""
+    payload: dict = {"type": chunk_type, "id": str(message_id)}
+    if delta is not None:
+        payload["delta"] = delta
+    return json.dumps(payload) + "\n"

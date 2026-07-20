@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import func, insert, select
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.database.base import SessionLocal
 from app.database.models.chat_message import ChatMessage
 from app.database.models.chat_thread import ChatThread
 from app.database.models.message_role import MessageRole
@@ -23,7 +25,7 @@ async def get_or_create_user(
     cannot produce duplicate-key errors.
     """
     stmt = (
-        insert(User)
+        pg_insert(User)
         .values(id=user_id, email=email)
         .on_conflict_do_nothing(index_elements=["id"])
     )
@@ -114,3 +116,14 @@ async def get_thread_messages(
     )
     result = await session.scalars(stmt)
     return list(result)
+
+
+async def persist_assistant_reply(thread_id: uuid.UUID, content: str) -> None:
+    """Persist the assistant reply after a stream completes.
+
+    Opens a fresh session so it is safe to run from a background task, after
+    the request's own session has been closed.
+    """
+    async with SessionLocal() as session:
+        await add_message(session, thread_id, MessageRole.ASSISTANT, content)
+        await session.commit()

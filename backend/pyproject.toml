@@ -8,6 +8,7 @@ version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
     "alembic==1.18.5",
+    "docling==2.112.0",
     "fastapi==0.139.0",
     "httpx==0.28.1",
     "openai==2.44.0",
@@ -31,6 +32,7 @@ exclude-newer = "7 days"
 
 [dependency-groups]
 dev = [
+    "aiosqlite==0.22.1",
     "ipykernel==7.3.0",
     "pytest==9.1.1",
     "ruff==0.15.20",

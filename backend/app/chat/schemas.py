@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.database.models.message_role import MessageRole
 
@@ -17,8 +17,7 @@ class MessageSchema(BaseModel):
     created_at: datetime
     sequence: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ThreadSchema(BaseModel):
@@ -28,8 +27,7 @@ class ThreadSchema(BaseModel):
     updated_at: datetime
     message_count: int = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # --- AI SDK UIMessage wire format ---
