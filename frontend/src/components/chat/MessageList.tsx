@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect } from 'react'
+﻿import { useMemo, useRef, useEffect } from 'react'
 import { Message } from './Message'
 import type { UIMessage, ChatStatus } from 'ai'
 import type { PipelineStatus, CitationPayload } from '@/lib/citations'
@@ -8,7 +8,6 @@ interface MessageListProps {
   messages: UIMessage[]
   status?: ChatStatus
   pipelineStatus?: PipelineStatus | null
-  selectedCitationIndex?: number | null
   onSelectCitation?: (citation: CitationPayload | null) => void
   onSendSuggestion?: (text: string) => void
 }
@@ -17,6 +16,7 @@ export function MessageList({
   messages,
   status = 'ready',
   pipelineStatus = null,
+  onSelectCitation,
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -24,7 +24,6 @@ export function MessageList({
     return messages.filter((m) => m.role !== 'system')
   }, [messages])
 
-  // Auto-scroll to bottom when new messages arrive or pipeline status changes
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [visibleMessages, pipelineStatus])
@@ -43,9 +42,9 @@ export function MessageList({
         >
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>
-        <p className="text-lg font-medium text-foreground">Start a conversation</p>
+        <p className="text-lg font-medium text-foreground">Inicia una conversación</p>
         <p className="text-sm mt-1 max-w-sm">
-          Ask a question about the SEC filings. Citations will appear here.
+          Pregunta sobre los archivos SEC. Las citas aparecerán aquí.
         </p>
       </div>
     )
@@ -57,7 +56,11 @@ export function MessageList({
     <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
       <div className="max-w-3xl mx-auto space-y-6">
         {visibleMessages.map((message) => (
-          <Message key={message.id} message={message} />
+          <Message
+            key={message.id}
+            message={message}
+            onSelectCitation={onSelectCitation}
+          />
         ))}
 
         {pipelineStatus && isPending && (

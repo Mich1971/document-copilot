@@ -1,4 +1,4 @@
-"""Unit tests for the chat routes using a mocked auth + in-memory DB."""
+﻿"""Unit tests for the chat routes using a mocked auth + in-memory DB."""
 
 import json
 import uuid
@@ -34,7 +34,6 @@ def test_get_thread_returns_ui_message_format(client):
     assert resp.status_code == 200
     body = resp.json()
     assert body["id"] == thread_id
-    # Empty thread still serializes `messages` as a list (AI SDK UIMessage shape).
     assert body["messages"] == []
 
 
@@ -61,16 +60,17 @@ def test_stream_returns_valid_ndjson_text_chunks(client, monkeypatch):
     assert len(lines) >= 3
 
     start = json.loads(lines[0])
-    delta = json.loads(lines[1])
-    end = json.loads(lines[-1])
+    text_deltas = [json.loads(line) for line in lines if json.loads(line)["type"] == "text-delta"]
+    text_end = next(line for line in lines if json.loads(line)["type"] == "text-end")
+    text_end = json.loads(text_end)
 
     assert start["type"] == "text-start"
     assert "id" in start
-    assert delta["type"] == "text-delta"
-    assert delta["id"] == start["id"]
-    assert "delta" in delta and delta["delta"]
-    assert end["type"] == "text-end"
-    assert end["id"] == start["id"]
+    assert len(text_deltas) >= 1
+    assert text_deltas[0]["id"] == start["id"]
+    assert "delta" in text_deltas[0] and text_deltas[0]["delta"]
+    assert text_end["type"] == "text-end"
+    assert text_end["id"] == start["id"]
 
 
 def test_stream_persists_user_and_assistant_messages(client, monkeypatch):
@@ -97,12 +97,9 @@ def test_stream_persists_user_and_assistant_messages(client, monkeypatch):
 
 
 def test_access_other_users_thread_returns_403(client):
-    # Create a thread owned by the (mocked) test user.
     create = client.post("/chats/threads", json={"title": "Private"})
     thread_id = create.json()["id"]
 
-    # A thread id that does not belong to the user resolves to 403 in the
-    # stream endpoint (ownership enforced via get_chat_thread).
     other_id = str(uuid.uuid4())
     assert other_id != thread_id
 

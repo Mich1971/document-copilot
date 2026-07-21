@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 
 import { format } from 'date-fns'
 import { Copy, Check, Loader2, FileText, ExternalLink } from 'lucide-react'
@@ -8,14 +8,14 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import type { UIMessage } from 'ai'
 
-
 import { extractCitations, type CitationPayload } from '@/lib/citations'
 
 interface MessageProps {
   message: UIMessage
+  onSelectCitation?: (citation: CitationPayload | null) => void
 }
 
-export function Message({ message }: MessageProps) {
+export function Message({ message, onSelectCitation }: MessageProps) {
   const [isCopied, setIsCopied] = useState(false)
   const citations = useMemo(() => extractCitations([message]), [message])
   const hasCitations = citations.length > 0
@@ -43,7 +43,7 @@ export function Message({ message }: MessageProps) {
       return (
         <div className="flex items-center gap-2 text-muted-foreground py-1">
           <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="text-sm">Thinking...</span>
+          <span className="text-sm">Pensando…</span>
         </div>
       )
     }
@@ -66,7 +66,6 @@ export function Message({ message }: MessageProps) {
     return null
   }
 
-
   const renderCitations = () => {
     if (!hasCitations) return null
 
@@ -75,16 +74,20 @@ export function Message({ message }: MessageProps) {
         <Separator />
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <FileText className="h-3 w-3" />
-          <span>Sources ({citations.length})</span>
+          <span>Fuentes ({citations.length})</span>
         </div>
         <ScrollArea className="max-h-64">
           <div className="space-y-2 p-1">
             {citations.map((citation, index) => (
-              <CitationItem key={`${citation.documentId}-${index}`} citation={citation} index={index} />
+              <CitationItem
+                key={`${citation.documentId}-${index}`}
+                citation={citation}
+                index={index}
+                onSelect={onSelectCitation}
+              />
             ))}
           </div>
         </ScrollArea>
-
       </div>
     )
   }
@@ -128,7 +131,7 @@ export function Message({ message }: MessageProps) {
   )
 }
 
-function CitationItem({ citation, index }: { citation: CitationPayload; index: number }) {
+function CitationItem({ citation, index, onSelect }: { citation: CitationPayload; index: number; onSelect?: (citation: CitationPayload | null) => void }) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
@@ -153,7 +156,7 @@ function CitationItem({ citation, index }: { citation: CitationPayload; index: n
             </p>
             <div className="flex items-center justify-between mt-2 pt-2 border-t border-muted-foreground/5">
               <span className="text-[10px] text-muted-foreground/70">
-                Score: {citation.score.toFixed(3)}
+                Chunk: {citation.chunkIndex}
               </span>
               <div className="flex items-center gap-1">
                 <Button
@@ -161,7 +164,7 @@ function CitationItem({ citation, index }: { citation: CitationPayload; index: n
                   size="icon"
                   className="h-6 w-6"
                   onClick={handleCopy}
-                  title="Copy snippet"
+                  title="Copiar fragmento"
                 >
                   {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                 </Button>
@@ -169,7 +172,8 @@ function CitationItem({ citation, index }: { citation: CitationPayload; index: n
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6"
-                  title="View source document"
+                  title="Ver pasaje fuente"
+                  onClick={() => onSelect?.(citation)}
                 >
                   <ExternalLink className="h-3 w-3" />
                 </Button>

@@ -176,7 +176,6 @@ async def stream_chat(
             for citation in turn_state.answer.citations:
                 yield stream_citation(assistant_id, citation)
 
-        yield stream_status(assistant_id, "complete", 1.0, "Listo")
 
     async def _save_assistant_with_citations() -> None:
         async with SessionLocal() as session:

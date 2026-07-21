@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useChat } from '@ai-sdk/react'
 import type { UIMessage } from 'ai'
@@ -9,6 +9,7 @@ import { MessageList } from '@/components/chat/MessageList'
 import { SourcePassageSheet } from '@/components/chat/SourcePassageSheet'
 import { Loader } from '@/components/ui/loader'
 import { useChatTransport } from '@/hooks/useChatTransport'
+import { useStreamStatus } from '@/hooks/useStreamStatus'
 import { useThreads } from '@/hooks/useThreads'
 import { classifyChatError } from '@/lib/chat-errors'
 import { getThreadMessages } from '@/lib/chat'
@@ -26,6 +27,7 @@ function ChatThreadView({ threadId, initialMessages }: ChatThreadViewProps) {
   const { refreshThreads } = useThreads()
   const [pipelineStatus, setPipelineStatus] = useState<PipelineStatusState | null>(null)
   const [selectedCitation, setSelectedCitation] = useState<CitationPayload | null>(null)
+  const streamStatus = useStreamStatus(threadId)
   const transport = useChatTransport(threadId, setPipelineStatus)
 
   const { messages, sendMessage, status, error, stop } = useChat({
@@ -38,13 +40,30 @@ function ChatThreadView({ threadId, initialMessages }: ChatThreadViewProps) {
     },
   })
 
+  useEffect(() => {
+    if (status === 'submitted' || status === 'streaming') {
+      streamStatus.connect().then(({ pipelineStatus: ps, error: streamError }) => {
+        if (streamError) {
+          setPipelineStatus({
+            stage: 'generation',
+            progress: 0.5,
+            message: streamError.message,
+          })
+          return
+        }
+        if (ps) {
+          setPipelineStatus(ps)
+        }
+      })
+    }
+  }, [status, streamStatus])
+
   function send(text: string) {
     setPipelineStatus(null)
     setSelectedCitation(null)
     void sendMessage({ text })
   }
 
-  // Auto-send a starter prompt forwarded from the empty page, once.
   const initialPrompt = (location.state as { initialPrompt?: string } | null)?.initialPrompt
   const sentInitial = useRef(false)
   useEffect(() => {
@@ -61,7 +80,6 @@ function ChatThreadView({ threadId, initialMessages }: ChatThreadViewProps) {
         messages={messages}
         status={status}
         pipelineStatus={pipelineStatus}
-        selectedCitationIndex={selectedCitation?.citationIndex ?? null}
         onSelectCitation={setSelectedCitation}
         onSendSuggestion={send}
       />
@@ -106,7 +124,7 @@ function ChatThreadLoader({ threadId }: { threadId: string }) {
           return
         }
 
-        const error = err instanceof Error ? err : new Error('Could not load this conversation.')
+        const error = err instanceof Error ? err : new Error('No se pudo cargar la conversación.')
 
         if (err instanceof ApiError && err.status === 404) {
           navigate('/chats', { replace: true })
@@ -141,7 +159,7 @@ function ChatThreadLoader({ threadId }: { threadId: string }) {
           <p className="text-sm text-muted-foreground">{classified.message}</p>
           {classified.showLoginLink ? (
             <Link to="/login" className="text-sm font-medium underline underline-offset-4">
-              Sign in again
+              Volver a iniciar sesión
             </Link>
           ) : (
             <button
@@ -149,7 +167,7 @@ function ChatThreadLoader({ threadId }: { threadId: string }) {
               className="text-sm font-medium underline underline-offset-4"
               onClick={() => setReloadKey((value) => value + 1)}
             >
-              Try again
+              Reintentar
             </button>
           )}
         </div>
@@ -160,7 +178,7 @@ function ChatThreadLoader({ threadId }: { threadId: string }) {
   if (initialMessages === null) {
     return (
       <div className="flex flex-1 items-center justify-center p-6">
-        <Loader variant="text-shimmer" text="Loading conversation…" />
+        <Loader variant="text-shimmer" text="Cargando conversación…" />
       </div>
     )
   }

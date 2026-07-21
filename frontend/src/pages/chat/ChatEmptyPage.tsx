@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { LogoMark } from '@/components/Logo'
@@ -15,7 +15,7 @@ export function ChatEmptyPage() {
     if (isStarting) return
     setIsStarting(true)
     try {
-      const newThread = await addThread(prompt ? prompt.slice(0, 50) : 'New chat')
+      const newThread = await addThread(prompt ? prompt.slice(0, 50) : 'Nuevo chat')
       navigate(`/chats/${newThread.id}`, prompt ? { state: { initialPrompt: prompt } } : undefined)
     } finally {
       setIsStarting(false)
@@ -28,11 +28,11 @@ export function ChatEmptyPage() {
         <LogoMark className="size-12" />
         <div className="space-y-1.5">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            How can I help with your filings?
+            ¿En qué puedo ayudarte con tus archivos?
           </h1>
           <p className="max-w-md text-sm text-muted-foreground">
-            Ask a question about SEC filings. Every answer is grounded in source documents
-            with verifiable citations.
+            Pregunta sobre los archivos SEC. Cada respuesta está fundamentada en documentos
+            fuente con citas verificables.
           </p>
         </div>
       </div>
