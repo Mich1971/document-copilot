@@ -26,11 +26,7 @@ The critical path is **data model → ingestion → retrieval → LLM → citati
 - [x] Install toolchain: Python 3.12+, `uv`, Node 20+, `pnpm` (see [README](../README.md))
 - [x] Create Supabase project and collect credentials ([supabase-setup](guides/supabase-setup.md))
 - [x] Create OpenAI API key (needed from Phase 6 onward)
-- [ ] Set `USER_AGENT` in `data/download.py` and download sample 10-K corpus:
-  ```bash
-  uv run data/download.py
-  ```
-- [ ] Confirm `data/downloads/manifest.json` lists AAPL, MSFT, NVDA, AMZN, GOOGL filings (2021–2025)
+- [x] Corpus: se usaron PDFs locales en `data/downloads/` (12 documentos) en vez del corpus SEC 10-K
 
 ---
 
@@ -54,7 +50,8 @@ Goal: a running FastAPI service with a migrated Supabase schema.
   - [x] `create extension if not exists vector`
   - [x] `vector(1536)` embedding column
   - [x] generated `tsvector` column on chunks
-  - [x] HNSW index (vector) + GIN index (full-text)
+  - [x] HNSW index (`vector(1536)` en migraci�n inicial; luego migrado a `vector(2048)` con �ndice funcional `halfvec(2048)` para soportar >2000 dims)
+  - [x] Recrear columna search_vector (tsvector) + GIN index; se perdió en migración 2c718e53341 (migración 5854003476ac)
   - [x] RLS policies (users see only their own chats)
 - [x] `uv run alembic upgrade head` against Supabase direct connection
 - [x] `app/database/supabase.py` — user-scoped and service-role clients
@@ -110,24 +107,25 @@ Goal: end-to-end chat UI streaming from FastAPI, no real retrieval yet.
 
 
 
-## Phase 4 — Ingestion pipeline
+## Phase 4 � Ingestion pipeline
 
-Goal: SEC filings in the corpus are parsed, chunked, embedded, and stored in Supabase.
+Goal: documents in the corpus are parsed, chunked, embedded, and stored in Supabase.
 
-- [x] `data/convert_pdfs_to_docling.py` — PDF → DoclingDocument JSON pipeline
-- [x] `data/doclingdocuments/manifest.json` — conversion manifest for UI-driven ingestion
-- [x] `uploaded_documents` table + SQLAlchemy model for locally uploaded PDFs
-- [x] Alembic migration `a2c718e53341_add_uploaded_documents` (includes `uploaded_documents` + `document_tables`)
-- [x] Ingestion API routes: `GET/POST /ingest/documents`, `PATCH /ingest/documents/{id}`
-- [ ] Chunking strategy (size + overlap; store chunk index, page, section, ticker, filing type, year)
-- [ ] Write `source_documents` rows with filing metadata from `manifest.json`
-- [ ] Write `document_chunks` rows with text + metadata
-- [ ] OpenAI embedding generation → store `vector(1536)` per chunk
-- [ ] Generated `tsvector` populated for full-text search
-- [ ] Idempotent re-run (skip already-ingested documents)
-- [ ] Unit tests: chunking logic, metadata extraction
-- [ ] Run ingestion on full sample corpus (25 filings × 5 companies)
-- [ ] Verify: chunks exist in Supabase; spot-check a known passage (e.g. Apple revenue mix table)
+- [x] data/convert_pdfs_to_docling.py � PDF ? DoclingDocument JSON pipeline
+- [x] data/doclingdocuments/manifest.json � conversion manifest for UI-driven ingestion
+- [x] uploaded_documents table + SQLAlchemy model for locally uploaded PDFs
+- [x] Alembic migration 2c718e53341_add_uploaded_documents (includes uploaded_documents + document_tables)
+- [x] Ingestion API routes: GET/POST /ingest/documents, PATCH /ingest/documents/{id}
+- [x] Chunking strategy: Docling HybridChunker (max 800 tokens), page/section metadata
+- [x] Write source_documents rows con metadata de documentos locales
+- [x] Write document_chunks rows con text + metadata + embeddings
+- [x] OpenRouter embedding generation (`nvidia/nemotron-3-embed-1b:free`) → `vector(2048)` per chunk
+- [x] Recrear search_vector (tsvector) + GIN index (migración 5854003476ac, config spanish)
+- [x] Idempotent re-run: comportamiento **replace** por documento (borra chunks anteriores, inserta nuevos)
+- [x] Unit tests: chunking logic, metadata extraction (tests/ingest/test_chunking.py, 5 tests)
+- [x] Run ingestion on sample corpus (12 PDFs locales)
+- [x] Verify: 60 chunks con embeddings de 2048 dims en Supabase; smoke test de 1 chunk exitoso
+- [x] �ndice HNSW funcional ix_document_chunks_embedding_hnsw_halfvec sobre CAST(embedding AS halfvec(2048)) para superar l�mite de pgvector 0.8.x con >2000 dims
 
 ---
 
@@ -137,13 +135,13 @@ Goal: SEC filings in the corpus are parsed, chunked, embedded, and stored in Sup
 
 Goal: a user question returns ranked, relevant source passages.
 
-- [ ] `retrieval/queries.py` — pgvector semantic search over `document_chunks`
-- [ ] `retrieval/queries.py` — Postgres full-text search over `search_vector`
-- [ ] `retrieval/fusion.py` — Reciprocal Rank Fusion in Python
-- [ ] `retrieval/retriever.py` — query → fused ranked passages + neighbor chunks
-- [ ] Unit tests: fusion ranking, query assembly (mock DB)
+- [x] `retrieval/queries.py` — pgvector semantic search over `document_chunks`
+- [x] `retrieval/queries.py` — Postgres full-text search over `search_vector` (spanish config)
+- [x] `retrieval/fusion.py` — Reciprocal Rank Fusion in Python
+- [x] `retrieval/retriever.py` — query → fused ranked passages + neighbor chunks
+- [x] Unit tests: fusion ranking, query assembly (mock DB) (tests/retrieval/, 12 tests)
 - [ ] Integration test (optional, `@pytest.mark.integration`): real query against ingested corpus
-- [ ] Verify: test queries from [client-brief](client-brief.md) return relevant chunks (manual or scripted)
+- [ ] Verify: test queries from client brief return relevant chunks (user provides questions when required)
 
 ---
 
@@ -224,5 +222,3 @@ Goal: 5 senior analysts can use it for a week and report ≥3 hours saved per an
 | [guides/supabase-setup.md](guides/supabase-setup.md) | Hosted Postgres + Auth                        |
 | [guides/backend-setup.md](guides/backend-setup.md)   | FastAPI + Alembic commands                    |
 | [guides/frontend-setup.md](guides/frontend-setup.md) | Vite + React scaffold commands                |
-
-
