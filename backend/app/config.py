@@ -26,8 +26,9 @@ class Settings(BaseSettings):
     database_url: str
     openai_api_key: SecretStr
 
-    openai_embedding_model: str = "text-embedding-3-small"
-    openai_embedding_dimensions: int = Field(default=1536, ge=1)
+    openai_embedding_model: str = "nvidia/nemotron-3-embed-1b:free"
+    openai_embedding_dimensions: int = Field(default=2048, ge=1)
+    openrouter_api_key: SecretStr | None = None
 
     allowed_origins_raw: str = Field(
         default="http://localhost:5173",
@@ -55,6 +56,8 @@ class Settings(BaseSettings):
 def _mirror_sdk_env(settings: Settings) -> None:
     # Third-party SDKs read os.environ directly; settings remain the source of truth.
     os.environ["OPENAI_API_KEY"] = settings.openai_api_key.get_secret_value()
+    if settings.openrouter_api_key is not None:
+        os.environ["OPENROUTER_API_KEY"] = settings.openrouter_api_key.get_secret_value()
 
 # Cache the settings object to avoid re-reading the environment variables on each request.
 @lru_cache

@@ -7,6 +7,7 @@ from app.database.models.document_table import DocumentTable
 from app.database.models.message_citation import MessageCitation
 from app.database.models.message_role import MessageRole
 from app.database.models.source_document import SourceDocument
+from app.database.models.uploaded_document import UploadedDocument
 from app.database.models.user import User
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     "MessageCitation",
     "MessageRole",
     "SourceDocument",
+    "UploadedDocument",
     "User",
 ]

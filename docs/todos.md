@@ -114,8 +114,11 @@ Goal: end-to-end chat UI streaming from FastAPI, no real retrieval yet.
 
 Goal: SEC filings in the corpus are parsed, chunked, embedded, and stored in Supabase.
 
-- [ ] `ingest/` scripts (or CLI entrypoint) for one-off corpus loading
-- [ ] HTML → normalized Markdown extraction (preserve page/section metadata)
+- [x] `data/convert_pdfs_to_docling.py` — PDF → DoclingDocument JSON pipeline
+- [x] `data/doclingdocuments/manifest.json` — conversion manifest for UI-driven ingestion
+- [x] `uploaded_documents` table + SQLAlchemy model for locally uploaded PDFs
+- [x] Alembic migration `a2c718e53341_add_uploaded_documents` (includes `uploaded_documents` + `document_tables`)
+- [x] Ingestion API routes: `GET/POST /ingest/documents`, `PATCH /ingest/documents/{id}`
 - [ ] Chunking strategy (size + overlap; store chunk index, page, section, ticker, filing type, year)
 - [ ] Write `source_documents` rows with filing metadata from `manifest.json`
 - [ ] Write `document_chunks` rows with text + metadata

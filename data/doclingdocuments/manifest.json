@@ -1,0 +1,55 @@
+{
+  "source": "local-uploads",
+  "converted_at_utc": "2026-07-20T17:34:10.781034+00:00",
+  "converted_count": 12,
+  "documents": [
+    {
+      "source_filename": "faq_transacciones.pdf",
+      "docling_document": "faq_transacciones.json"
+    },
+    {
+      "source_filename": "guia_integracion_api_pagos.pdf",
+      "docling_document": "guia_integracion_api_pagos.json"
+    },
+    {
+      "source_filename": "guia_operaciones_soporte.pdf",
+      "docling_document": "guia_operaciones_soporte.json"
+    },
+    {
+      "source_filename": "manual_operaciones_documentales.pdf",
+      "docling_document": "manual_operaciones_documentales.json"
+    },
+    {
+      "source_filename": "manual_pld_ft_v1.pdf",
+      "docling_document": "manual_pld_ft_v1.json"
+    },
+    {
+      "source_filename": "politica_prevencion_fraude.pdf",
+      "docling_document": "politica_prevencion_fraude.json"
+    },
+    {
+      "source_filename": "politica_privacidad.pdf",
+      "docling_document": "politica_privacidad.json"
+    },
+    {
+      "source_filename": "politica_seguridad_pci_dss.pdf",
+      "docling_document": "politica_seguridad_pci_dss.json"
+    },
+    {
+      "source_filename": "portafolio_servicios_acceso.pdf",
+      "docling_document": "portafolio_servicios_acceso.json"
+    },
+    {
+      "source_filename": "tarifas_comisiones.pdf",
+      "docling_document": "tarifas_comisiones.json"
+    },
+    {
+      "source_filename": "terminos_condiciones_usuario_final.pdf",
+      "docling_document": "terminos_condiciones_usuario_final.json"
+    },
+    {
+      "source_filename": "terminos_uso.pdf",
+      "docling_document": "terminos_uso.json"
+    }
+  ]
+}

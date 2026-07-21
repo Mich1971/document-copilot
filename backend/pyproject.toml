@@ -33,6 +33,7 @@ exclude-newer = "7 days"
 [dependency-groups]
 dev = [
     "aiosqlite==0.22.1",
+    "docling==2.112.0",
     "ipykernel==7.3.0",
     "pytest==9.1.1",
     "ruff==0.15.20",

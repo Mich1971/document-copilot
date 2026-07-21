@@ -806,6 +806,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "aiosqlite" },
+    { name = "docling" },
     { name = "ipykernel" },
     { name = "pytest" },
     { name = "ruff" },
@@ -832,6 +833,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "aiosqlite", specifier = "==0.22.1" },
+    { name = "docling", specifier = "==2.112.0" },
     { name = "ipykernel", specifier = "==7.3.0" },
     { name = "pytest", specifier = "==9.1.1" },
     { name = "ruff", specifier = "==0.15.20" },
