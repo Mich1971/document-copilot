@@ -80,3 +80,17 @@ class StreamChatRequest(BaseModel):
     """
     messages: list[AIMessage]
     thread_id: uuid.UUID
+
+
+class CitationOut(BaseModel):
+    chunk_id: uuid.UUID
+    chunk_index: int | None = None
+    excerpt: str
+    ticker: str
+    company_name: str | None = None
+    form: str
+    filing_date: datetime
+    page: str | None = None
+    section: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)

@@ -38,9 +38,15 @@ def test_get_thread_returns_ui_message_format(client):
     assert body["messages"] == []
 
 
-def test_stream_returns_valid_ndjson_text_chunks(client):
+def test_stream_returns_valid_ndjson_text_chunks(client, monkeypatch):
     create = client.post("/chats/threads", json={"title": "Stream"})
     thread_id = create.json()["id"]
+
+    async def mock_run_turn_stream(*args, **kwargs):
+        yield "Hello "
+        yield "world"
+
+    monkeypatch.setattr("app.chat.orchestrator.run_turn_stream", mock_run_turn_stream)
 
     payload = StreamChatRequest(
         messages=[{"role": "user", "content": "Hi there"}],
@@ -67,9 +73,14 @@ def test_stream_returns_valid_ndjson_text_chunks(client):
     assert end["id"] == start["id"]
 
 
-def test_stream_persists_user_and_assistant_messages(client):
+def test_stream_persists_user_and_assistant_messages(client, monkeypatch):
     create = client.post("/chats/threads", json={"title": "Persist"})
     thread_id = create.json()["id"]
+
+    async def mock_run_turn_stream(*args, **kwargs):
+        yield "Remembered"
+
+    monkeypatch.setattr("app.chat.orchestrator.run_turn_stream", mock_run_turn_stream)
 
     payload = StreamChatRequest(
         messages=[{"role": "user", "content": "Remember me"}],

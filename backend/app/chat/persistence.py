@@ -9,9 +9,11 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.assistant.outputs import Citation
 from app.database.base import SessionLocal
 from app.database.models.chat_message import ChatMessage
 from app.database.models.chat_thread import ChatThread
+from app.database.models.message_citation import MessageCitation
 from app.database.models.message_role import MessageRole
 from app.database.models.user import User
 
@@ -127,3 +129,25 @@ async def persist_assistant_reply(thread_id: uuid.UUID, content: str) -> None:
     async with SessionLocal() as session:
         await add_message(session, thread_id, MessageRole.ASSISTANT, content)
         await session.commit()
+
+
+async def persist_citations(
+    session: AsyncSession,
+    message_id: uuid.UUID,
+    citations: list[Citation],
+) -> None:
+    """Persist citation rows linked to an assistant message."""
+    for index, citation in enumerate(citations):
+        citation_row = MessageCitation(
+            message_id=message_id,
+            chunk_id=citation.chunk_id,
+            citation_index=index,
+            excerpt=citation.excerpt,
+            ticker=citation.ticker,
+            company_name=citation.company_name,
+            form=citation.form,
+            filing_date=citation.filing_date,
+            page=citation.page,
+            section=citation.section,
+        )
+        session.add(citation_row)

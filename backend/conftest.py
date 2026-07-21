@@ -23,6 +23,7 @@ from sqlalchemy.types import TypeDecorator
 
 import app.database.base as db_base
 import app.chat.persistence as chat_persistence
+import app.chat.routes as chat_routes
 from app.auth.dependencies import CurrentUser, get_current_user
 from app.database.base import Base, get_session
 from app.database.models.user import User
@@ -107,6 +108,7 @@ def client(engine, monkeypatch):
     # Background-task persistence opens its own session via SessionLocal.
     monkeypatch.setattr(db_base, "SessionLocal", factory)
     monkeypatch.setattr(chat_persistence, "SessionLocal", factory)
+    monkeypatch.setattr(chat_routes, "SessionLocal", factory)
 
     from app.main import app
 

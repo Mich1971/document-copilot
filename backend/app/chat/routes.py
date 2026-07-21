@@ -1,29 +1,37 @@
 """Chat API routes."""
 
-import json
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import CurrentUser, get_current_user
+from app.chat import orchestrator
 from app.chat.persistence import (
+    SessionLocal,
     add_message,
     create_chat_thread,
     get_chat_thread,
     get_or_create_user,
     list_chat_threads,
-    persist_assistant_reply,
+    persist_citations,
 )
 from app.chat.schemas import (
+    CitationOut,
     CreateThreadRequest,
     StreamChatRequest,
     ThreadDetailSchema,
     ThreadSchema,
     UIMessageOut,
 )
+from app.chat.streaming import stream_citation, stream_error, stream_status, stream_text_delta, stream_text_end, stream_text_start
 from app.database.base import get_session
+from app.database.models.chat_message import ChatMessage
+from app.database.models.chat_thread import ChatThread
+from app.database.models.document_chunk import DocumentChunk
+from app.database.models.message_citation import MessageCitation
 from app.database.models.message_role import MessageRole
 
 router = APIRouter(prefix="/chats", tags=["chats"])
@@ -102,17 +110,6 @@ async def get_thread(
     )
 
 
-async def _stream_assistant_reply(user_content: str):
-    """Generate a stubbed assistant streaming response.
-
-    Yields (chunk_type, text) tuples that the route maps to AI SDK NDJSON.
-    """
-    reply = f"Echo: {user_content}"
-    yield ("start", "")
-    for word in reply.split(" "):
-        yield ("delta", word + " ")
-    yield ("end", "")
-
 
 @router.post("/stream")
 async def stream_chat(
@@ -153,22 +150,43 @@ async def stream_chat(
 
     assistant_id = uuid.uuid4()
     buffer: list[str] = []
+    turn_state = orchestrator.TurnState()
 
     async def stream_generator():
-        async for chunk_type, text in _stream_assistant_reply(last_user_message.content):
-            if chunk_type == "start":
-                yield _chunk("text-start", assistant_id)
-            elif chunk_type == "delta":
-                buffer.append(text)
-                yield _chunk("text-delta", assistant_id, text)
-            elif chunk_type == "end":
-                yield _chunk("text-end", assistant_id)
-        yield "\n"
+        yield stream_text_start(assistant_id)
+        yield stream_status(assistant_id, "retrieval", 0.1, "Buscando en los filings…")
+        yield stream_status(assistant_id, "generation", 0.4, "Generando respuesta…")
+        try:
+            async for delta in orchestrator.run_turn_stream(
+                last_user_message.content,
+                body.thread_id,
+                current_user,
+                session,
+                turn_state,
+            ):
+                buffer.append(delta)
+                yield stream_text_delta(assistant_id, delta)
+        except ValueError as exc:
+            yield stream_error(assistant_id, str(exc))
+            return
+        yield stream_text_end(assistant_id)
+        yield stream_status(assistant_id, "grounding", 0.9, "Validando citas…")
 
-    async def _save_assistant() -> None:
-        await persist_assistant_reply(body.thread_id, "".join(buffer))
+        if turn_state.answer and turn_state.answer.citations:
+            for citation in turn_state.answer.citations:
+                yield stream_citation(assistant_id, citation)
 
-    background_tasks.add_task(_save_assistant)
+        yield stream_status(assistant_id, "complete", 1.0, "Listo")
+
+    async def _save_assistant_with_citations() -> None:
+        async with SessionLocal() as session:
+            message = await add_message(session, body.thread_id, MessageRole.ASSISTANT, "".join(buffer))
+            await session.commit()
+            if turn_state.answer and turn_state.answer.citations:
+                await persist_citations(session, message.id, turn_state.answer.citations)
+                await session.commit()
+
+    background_tasks.add_task(_save_assistant_with_citations)
 
     return StreamingResponse(
         stream_generator(),
@@ -176,9 +194,46 @@ async def stream_chat(
     )
 
 
-def _chunk(chunk_type: str, message_id: uuid.UUID, delta: str | None = None) -> str:
-    """Serialize an AI SDK UIMessageChunk to a single NDJSON line."""
-    payload: dict = {"type": chunk_type, "id": str(message_id)}
-    if delta is not None:
-        payload["delta"] = delta
-    return json.dumps(payload) + "\n"
+@router.get("/messages/{message_id}/citations", response_model=list[CitationOut])
+async def get_message_citations(
+    message_id: uuid.UUID,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[CitationOut]:
+    stmt = (
+        select(
+            MessageCitation.chunk_id,
+            DocumentChunk.chunk_index,
+            MessageCitation.excerpt,
+            MessageCitation.ticker,
+            MessageCitation.company_name,
+            MessageCitation.form,
+            MessageCitation.filing_date,
+            MessageCitation.page,
+            MessageCitation.section,
+        )
+        .join(ChatMessage, MessageCitation.message_id == ChatMessage.id)
+        .join(ChatThread, ChatMessage.thread_id == ChatThread.id)
+        .join(DocumentChunk, MessageCitation.chunk_id == DocumentChunk.id)
+        .where(MessageCitation.message_id == message_id)
+        .where(ChatThread.user_id == current_user.id)
+        .order_by(MessageCitation.citation_index)
+    )
+    result = await session.execute(stmt)
+    rows = result.all()
+    return [
+        CitationOut(
+            chunk_id=row.chunk_id,
+            chunk_index=row.chunk_index,
+            excerpt=row.excerpt,
+            ticker=row.ticker,
+            company_name=row.company_name,
+            form=row.form,
+            filing_date=row.filing_date,
+            page=row.page,
+            section=row.section,
+        )
+        for row in rows
+    ]
+
+
