@@ -32,14 +32,18 @@ export function Message({ message, onSelectCitation }: MessageProps) {
   }
 
   const handleCopyMessage = async () => {
-    const text = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
+    const parts = (msg.parts || []) as any[]
+    const text = parts.filter((part) => part.type === 'text').map((part) => part.text || '').join('')
     await navigator.clipboard.writeText(text)
     setIsCopied(true)
     setTimeout(() => setIsCopied(false), 2000)
   }
 
   const renderContent = () => {
-    if (isAssistant && !msg.content && !hasCitations) {
+    const parts = (msg.parts || []) as any[]
+    const text = parts.filter((part) => part.type === 'text').map((part) => part.text || '').join('')
+
+    if (isAssistant && !text && !hasCitations) {
       return (
         <div className="flex items-center gap-2 text-muted-foreground py-1">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -48,21 +52,10 @@ export function Message({ message, onSelectCitation }: MessageProps) {
       )
     }
 
-    if (typeof msg.content === 'string') {
-      return <div className="whitespace-pre-wrap">{msg.content}</div>
+    if (text) {
+      return <div className="whitespace-pre-wrap">{text}</div>
     }
 
-    if (Array.isArray(msg.content)) {
-      return (
-        <div className="space-y-2">
-          {msg.content.map((part: any, i: number) => (
-            <div key={i} className="whitespace-pre-wrap">
-              {typeof part === 'string' ? part : JSON.stringify(part)}
-            </div>
-          ))}
-        </div>
-      )
-    }
     return null
   }
 

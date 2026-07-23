@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from datetime import date
+from typing import Callable
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -31,7 +32,32 @@ def _make_passage(chunk_id: uuid.UUID) -> Passage:
     )
 
 
-def test_orchestrator_streams_text_and_validates(monkeypatch):
+def _make_mock_run_stream(answer: GroundedAnswer, partial_text: str) -> Callable:
+    def mock_run_stream(prompt, deps):
+        result = MagicMock()
+
+        partial = GroundedAnswer(
+            answer=partial_text,
+            citations=answer.citations,
+            cited_passages=answer.cited_passages,
+        )
+
+        async def _stream_output():
+            yield partial
+            yield answer
+
+        result.stream_output = _stream_output
+        result.get_output = AsyncMock(return_value=answer)
+
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=result)
+        mock_cm.__aexit__ = AsyncMock(return_value=False)
+        return mock_cm
+
+    return mock_run_stream
+
+
+def test_orchestrator_streams_text_deltas_and_validates(monkeypatch):
     user = CurrentUser(id=uuid.uuid4(), email="test@example.com")
     session = MagicMock(spec=AsyncSession)
     passage = _make_passage(uuid.uuid4())
@@ -69,21 +95,7 @@ def test_orchestrator_streams_text_and_validates(monkeypatch):
         ],
     )
 
-    def mock_run_stream(prompt, deps):
-        result = MagicMock()
-
-        async def _stream_text():
-            yield "hola "
-            yield "mundo"
-
-        result.stream_text = _stream_text
-        result.get_output.return_value = answer
-
-        mock_cm = MagicMock()
-        mock_cm.__aenter__ = AsyncMock(return_value=result)
-        mock_cm.__aexit__ = AsyncMock(return_value=False)
-        return mock_cm
-
+    mock_run_stream = _make_mock_run_stream(answer, "resp")
     monkeypatch.setattr("app.chat.orchestrator.agent.run_stream", mock_run_stream)
 
     state = TurnState()
@@ -95,7 +107,7 @@ def test_orchestrator_streams_text_and_validates(monkeypatch):
         return parts, state
 
     parts, final_state = asyncio.run(_collect())
-    assert parts == ["hola ", "mundo"]
+    assert parts == ["resp", "uesta"]
     assert final_state.answer is answer
     assert final_state.passages == [passage]
 
@@ -130,20 +142,7 @@ def test_orchestrator_validation_failure_stops_stream(monkeypatch):
         cited_passages=[],
     )
 
-    def mock_run_stream(prompt, deps):
-        result = MagicMock()
-
-        async def _stream_text():
-            yield "hola"
-
-        result.stream_text = _stream_text
-        result.get_output.return_value = answer
-
-        mock_cm = MagicMock()
-        mock_cm.__aenter__ = AsyncMock(return_value=result)
-        mock_cm.__aexit__ = AsyncMock(return_value=False)
-        return mock_cm
-
+    mock_run_stream = _make_mock_run_stream(answer, "resp")
     monkeypatch.setattr("app.chat.orchestrator.agent.run_stream", mock_run_stream)
 
     state = TurnState()
@@ -156,4 +155,4 @@ def test_orchestrator_validation_failure_stops_stream(monkeypatch):
 
     with pytest.raises(ValueError, match="not in retrieved passages"):
         asyncio.run(_collect())
-    assert parts == ["hola"]
+    assert parts == ["resp", "uesta"]

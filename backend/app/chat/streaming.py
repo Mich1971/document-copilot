@@ -21,7 +21,7 @@ def stream_text_end(message_id: uuid.UUID) -> str:
 
 
 def stream_error(message_id: uuid.UUID, error: str) -> str:
-    return json.dumps({"type": "error", "id": str(message_id), "error": error}) + "\n"
+    return json.dumps({"type": "error", "errorText": error}) + "\n"
 
 
 def stream_citation(message_id: uuid.UUID, citation: Citation) -> str:

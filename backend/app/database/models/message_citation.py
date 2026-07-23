@@ -43,7 +43,7 @@ class MessageCitation(Base):
     excerpt: Mapped[str] = mapped_column(Text, nullable=False)
     ticker: Mapped[str] = mapped_column(String(16), nullable=False)
     company_name: Mapped[str | None] = mapped_column(String(255))
-    form: Mapped[str] = mapped_column(String(16), nullable=False)
+    form: Mapped[str] = mapped_column(String(64), nullable=False)
     filing_date: Mapped[date] = mapped_column(Date, nullable=False)
     page: Mapped[str | None] = mapped_column(String(64))
     section: Mapped[str | None] = mapped_column(Text)

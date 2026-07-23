@@ -4,17 +4,22 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from openai import APIError
 from pydantic_ai import Agent, RunContext, ModelAPIError
 from pydantic_ai.messages import ModelResponse
 from pydantic_ai.models.fallback import FallbackModel
+from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.openai import OpenAIProvider
 
 from app.assistant.deps import DocumentAgentDeps
 from app.assistant.outputs import GroundedAnswer
+from app.config import get_settings
 from app.database.models.document_chunk import DocumentChunk
 from app.database.models.source_document import SourceDocument
 from app.retrieval.schemas import Passage
 from sqlalchemy import select
 
+settings = get_settings()
 INSTRUCTIONS_PATH = Path(__file__).with_name("instructions.md")
 
 
@@ -29,11 +34,31 @@ def _is_bad_response(response: object) -> bool:
     return not text.strip() or len(text) < 10
 
 
-model = FallbackModel(
+def _build_groq_model() -> OpenAIChatModel | None:
+    if settings.groq_api_key is None:
+        return None
+    return OpenAIChatModel(
+        "openai/gpt-oss-120b",
+        provider=OpenAIProvider(
+            base_url="https://api.groq.com/openai/v1",
+            api_key=settings.groq_api_key.get_secret_value(),
+        ),
+    )
+
+
+groq_model = _build_groq_model()
+fallback_models = [
     "openrouter:nvidia/nemotron-3-super-120b-a12b:free",
     "openrouter:openai/gpt-oss-20b:free",
+]
+if groq_model is not None:
+    fallback_models.append(groq_model)
+
+model = FallbackModel(
+    *fallback_models,
     fallback_on=(
         ModelAPIError,
+        APIError,
         _is_bad_response,
     ),
 )

@@ -41,7 +41,7 @@ def test_stream_error():
     mid = uuid.uuid4()
     line = stream_error(mid, "boom")
     payload = json.loads(line)
-    assert payload == {"type": "error", "id": str(mid), "error": "boom"}
+    assert payload == {"type": "error", "errorText": "boom"}
 
 
 def test_stream_citation():

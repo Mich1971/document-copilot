@@ -26,7 +26,7 @@ from app.chat.schemas import (
     ThreadSchema,
     UIMessageOut,
 )
-from app.chat.streaming import stream_citation, stream_error, stream_status, stream_text_delta, stream_text_end, stream_text_start
+from app.chat.streaming import stream_error, stream_text_delta, stream_text_end, stream_text_start
 from app.database.base import get_session
 from app.database.models.chat_message import ChatMessage
 from app.database.models.chat_thread import ChatThread
@@ -44,10 +44,8 @@ async def create_thread(
     session: AsyncSession = Depends(get_session),
 ) -> ThreadSchema:
     """Create a new chat thread."""
-    # Ensure user row exists
     user = await get_or_create_user(session, current_user.id, current_user.email)
 
-    # Create thread
     thread = await create_chat_thread(session, user.id, body.title)
     await session.commit()
 
@@ -105,10 +103,9 @@ async def get_thread(
         title=thread.title,
         created_at=thread.created_at,
         updated_at=thread.updated_at,
-        message_count=len(thread.messages),
+        message_count=len(messages),
         messages=messages,
     )
-
 
 
 @router.post("/stream")
@@ -120,14 +117,9 @@ async def stream_chat(
 ) -> StreamingResponse:
     """
     Stream a chat response in the AI SDK Data Stream Protocol (NDJSON).
-
-    Accepts AI SDK message format, streams a stubbed assistant reply, and
-    persists the user message (before streaming) and the assistant message
-    (after streaming completes, via a background task).
     """
     await get_or_create_user(session, current_user.id, current_user.email)
 
-    # Extract the last user message
     user_messages = [m for m in body.messages if m.role == "user"]
     if not user_messages:
         raise HTTPException(
@@ -136,7 +128,6 @@ async def stream_chat(
         )
     last_user_message = user_messages[-1]
 
-    # thread_id is required (frontend creates the thread first). Enforce ownership.
     thread = await get_chat_thread(session, body.thread_id, current_user.id)
     if not thread:
         raise HTTPException(
@@ -144,7 +135,6 @@ async def stream_chat(
             detail="Thread not found or access denied",
         )
 
-    # Persist the user message up front, committed before streaming.
     await add_message(session, body.thread_id, MessageRole.USER, last_user_message.content)
     await session.commit()
 
@@ -154,8 +144,6 @@ async def stream_chat(
 
     async def stream_generator():
         yield stream_text_start(assistant_id)
-        yield stream_status(assistant_id, "retrieval", 0.1, "Buscando en los filings…")
-        yield stream_status(assistant_id, "generation", 0.4, "Generando respuesta…")
         try:
             async for delta in orchestrator.run_turn_stream(
                 last_user_message.content,
@@ -170,20 +158,18 @@ async def stream_chat(
             yield stream_error(assistant_id, str(exc))
             return
         yield stream_text_end(assistant_id)
-        yield stream_status(assistant_id, "grounding", 0.9, "Validando citas…")
-
-        if turn_state.answer and turn_state.answer.citations:
-            for citation in turn_state.answer.citations:
-                yield stream_citation(assistant_id, citation)
-
 
     async def _save_assistant_with_citations() -> None:
-        async with SessionLocal() as session:
-            message = await add_message(session, body.thread_id, MessageRole.ASSISTANT, "".join(buffer))
-            await session.commit()
-            if turn_state.answer and turn_state.answer.citations:
-                await persist_citations(session, message.id, turn_state.answer.citations)
+        try:
+            async with SessionLocal() as session:
+                message = await add_message(session, body.thread_id, MessageRole.ASSISTANT, "".join(buffer))
                 await session.commit()
+                if turn_state.answer and turn_state.answer.citations:
+                    await persist_citations(session, message.id, turn_state.answer.citations)
+                    await session.commit()
+        except Exception as exc:
+            import logging
+            logging.getLogger("chat.routes").exception("Failed to persist assistant message or citations: %s", exc)
 
     background_tasks.add_task(_save_assistant_with_citations)
 
@@ -234,5 +220,3 @@ async def get_message_citations(
         )
         for row in rows
     ]
-
-

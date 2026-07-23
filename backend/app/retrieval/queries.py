@@ -1,4 +1,4 @@
-"""Hybrid retrieval queries: semantic (pgvector) and lexical (full-text)."""
+﻿"""Hybrid retrieval queries: semantic (pgvector) and lexical (full-text)."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ async def semantic_search(
     stmt = (
         select(
             DocumentChunk.id,
-            text("1 - (embedding <=> :vec) AS score"),
+            text("1 - (embedding <=> :vec)"),
         )
         .where(text("embedding IS NOT NULL"))
         .order_by(text("embedding <=> :vec"))
@@ -38,12 +38,12 @@ async def semantic_search(
 
     result = await session.execute(stmt, {"vec": str(query_vec)})
     rows = result.all()
-    return [(row.id, float(row.score)) for row in rows]
+    return [(row[0], float(row[1])) for row in rows]
 
 
 def _sanitize_query(query: str) -> str:
     """Sanitize query for to_tsquery: keep only word characters, lowercase, add prefix."""
-    words = re.findall(r"[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]+", query)
+    words = re.findall(r"[^\W\d_]+", query, flags=re.UNICODE)
     if not words:
         return ""
     sanitized = " & ".join(f"{word.lower()}:*" for word in words)
@@ -67,13 +67,13 @@ async def lexical_search(
     stmt = (
         select(
             DocumentChunk.id,
-            text("ts_rank(search_vector, q) AS score"),
+            text("ts_rank(search_vector, to_tsquery('spanish', :query))"),
         )
         .where(text("search_vector @@ to_tsquery('spanish', :query)"))
-        .order_by(text("ts_rank(search_vector, q) DESC"))
+        .order_by(text("ts_rank(search_vector, to_tsquery('spanish', :query)) DESC"))
         .limit(k)
     )
 
     result = await session.execute(stmt, {"query": sanitized})
     rows = result.all()
-    return [(row.id, float(row.score)) for row in rows]
+    return [(row[0], float(row[1])) for row in rows]

@@ -159,6 +159,7 @@ Goal: grounded answers with enforced citations — the core product contract.
 - [x] `chat/streaming.py` — AI SDK-compatible stream (text deltas + citation metadata parts)
 - [x] Persist `message_citations` linked to assistant messages
 - [x] Unit tests: citation validation, grounding enforcement, message conversion (tests/assistant/, tests/grounding/, tests/chat/, 24 tests)
+- [x] Fallback AI model chain: OpenRouter free models first, Groq `openai/gpt-oss-120b` as tertiary fallback via OpenAI-compatible endpoint
 - [ ] Verify against [client-brief example questions](client-brief.md#example-analyst-questions):
   - [ ] Answers cite specific filings and pages
   - [ ] Under-specified questions get "not enough evidence" responses

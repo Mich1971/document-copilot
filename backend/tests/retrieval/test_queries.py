@@ -1,4 +1,4 @@
-"""Unit tests for retrieval queries with mocked DB."""
+﻿"""Unit tests for retrieval queries with mocked DB."""
 
 from __future__ import annotations
 
@@ -25,11 +25,15 @@ def test_sanitize_query_special_chars():
     assert _sanitize_query("¿Cómo estás?") == "cómo:* & estás:*"
 
 
+def _make_mock_row(row_id, score):
+    mock_row = MagicMock()
+    mock_row.__getitem__.side_effect = lambda idx: [row_id, score][idx]
+    return mock_row
+
+
 def test_semantic_search_returns_scores(monkeypatch):
     chunk_id = uuid.uuid4()
-    mock_row = MagicMock()
-    mock_row.id = chunk_id
-    mock_row.score = 0.85
+    mock_row = _make_mock_row(chunk_id, 0.85)
 
     mock_result = MagicMock()
     mock_result.all.return_value = [mock_row]
@@ -59,9 +63,7 @@ def test_semantic_search_returns_scores(monkeypatch):
 
 def test_lexical_search_returns_scores(monkeypatch):
     chunk_id = uuid.uuid4()
-    mock_row = MagicMock()
-    mock_row.id = chunk_id
-    mock_row.score = 1.5
+    mock_row = _make_mock_row(chunk_id, 1.5)
 
     mock_result = MagicMock()
     mock_result.all.return_value = [mock_row]

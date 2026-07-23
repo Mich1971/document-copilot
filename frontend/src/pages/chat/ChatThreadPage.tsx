@@ -9,7 +9,6 @@ import { MessageList } from '@/components/chat/MessageList'
 import { SourcePassageSheet } from '@/components/chat/SourcePassageSheet'
 import { Loader } from '@/components/ui/loader'
 import { useChatTransport } from '@/hooks/useChatTransport'
-import { useStreamStatus } from '@/hooks/useStreamStatus'
 import { useThreads } from '@/hooks/useThreads'
 import { classifyChatError } from '@/lib/chat-errors'
 import { getThreadMessages } from '@/lib/chat'
@@ -27,7 +26,6 @@ function ChatThreadView({ threadId, initialMessages }: ChatThreadViewProps) {
   const { refreshThreads } = useThreads()
   const [pipelineStatus, setPipelineStatus] = useState<PipelineStatusState | null>(null)
   const [selectedCitation, setSelectedCitation] = useState<CitationPayload | null>(null)
-  const streamStatus = useStreamStatus(threadId)
   const transport = useChatTransport(threadId, setPipelineStatus)
 
   const { messages, sendMessage, status, error, stop } = useChat({
@@ -39,24 +37,6 @@ function ChatThreadView({ threadId, initialMessages }: ChatThreadViewProps) {
       void refreshThreads()
     },
   })
-
-  useEffect(() => {
-    if (status === 'submitted' || status === 'streaming') {
-      streamStatus.connect().then(({ pipelineStatus: ps, error: streamError }) => {
-        if (streamError) {
-          setPipelineStatus({
-            stage: 'generation',
-            progress: 0.5,
-            message: streamError.message,
-          })
-          return
-        }
-        if (ps) {
-          setPipelineStatus(ps)
-        }
-      })
-    }
-  }, [status, streamStatus])
 
   function send(text: string) {
     setPipelineStatus(null)
@@ -75,7 +55,7 @@ function ChatThreadView({ threadId, initialMessages }: ChatThreadViewProps) {
   }, [initialPrompt])
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className='flex min-h-0 flex-1 flex-col'>
       <MessageList
         messages={messages}
         status={status}
@@ -85,7 +65,7 @@ function ChatThreadView({ threadId, initialMessages }: ChatThreadViewProps) {
       />
 
       {error ? (
-        <div className="mx-auto w-full max-w-3xl px-4 pb-2">
+        <div className='mx-auto w-full max-w-3xl px-4 pb-2'>
           <ChatError error={error} />
         </div>
       ) : null}
@@ -151,20 +131,20 @@ function ChatThreadLoader({ threadId }: { threadId: string }) {
     const classified = classifyChatError(loadError)
 
     return (
-      <div className="flex flex-1 items-center justify-center p-6">
-        <div className="max-w-md space-y-3 text-center">
-          <p className="text-sm font-medium text-destructive" role="alert">
+      <div className='flex flex-1 items-center justify-center p-6'>
+        <div className='max-w-md space-y-3 text-center'>
+          <p className='text-sm font-medium text-destructive' role='alert'>
             {classified.title}
           </p>
-          <p className="text-sm text-muted-foreground">{classified.message}</p>
+          <p className='text-sm text-muted-foreground'>{classified.message}</p>
           {classified.showLoginLink ? (
-            <Link to="/login" className="text-sm font-medium underline underline-offset-4">
+            <Link to='/login' className='text-sm font-medium underline underline-offset-4'>
               Volver a iniciar sesión
             </Link>
           ) : (
             <button
-              type="button"
-              className="text-sm font-medium underline underline-offset-4"
+              type='button'
+              className='text-sm font-medium underline underline-offset-4'
               onClick={() => setReloadKey((value) => value + 1)}
             >
               Reintentar
@@ -177,8 +157,8 @@ function ChatThreadLoader({ threadId }: { threadId: string }) {
 
   if (initialMessages === null) {
     return (
-      <div className="flex flex-1 items-center justify-center p-6">
-        <Loader variant="text-shimmer" text="Cargando conversación…" />
+      <div className='flex flex-1 items-center justify-center p-6'>
+        <Loader variant='text-shimmer' text='Cargando conversación…' />
       </div>
     )
   }

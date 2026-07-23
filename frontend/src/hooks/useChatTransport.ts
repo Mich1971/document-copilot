@@ -4,12 +4,31 @@ import { env } from '@/lib/env'
 import { supabase } from '@/lib/supabase'
 import type { PipelineStatus } from '@/lib/citations'
 
+class DebugChatTransport extends DefaultChatTransport {
+  async sendMessages(options) {
+    console.log('[DebugTransport] sendMessages options=', options)
+    const result = await super.sendMessages(options)
+    console.log('[DebugTransport] sendMessages result type=', result?.constructor?.name ?? result)
+    if (result && typeof result === 'object' && typeof result.pipeThrough === 'function') {
+      return result.pipeThrough(
+        new TransformStream({
+          transform(chunk, controller) {
+            console.log('[DebugTransport] stream chunk=', chunk)
+            controller.enqueue(chunk)
+          },
+        }),
+      )
+    }
+    return result
+  }
+}
+
 export function useChatTransport(
   threadId: string,
   setPipelineStatus: (status: PipelineStatus | null) => void,
 ) {
   return useMemo(() => {
-    return new DefaultChatTransport({
+    return new DebugChatTransport({
       api: `${env.apiBaseUrl}/chats/stream`,
       async headers() {
         const { data: { session } } = await supabase.auth.getSession()

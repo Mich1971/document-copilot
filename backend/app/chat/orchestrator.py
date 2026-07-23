@@ -6,7 +6,9 @@ import uuid
 from dataclasses import dataclass
 from typing import AsyncIterator
 
+from openai import APIError
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic_ai import ModelAPIError
 
 from app.assistant.agent import agent
 from app.assistant.deps import DocumentAgentDeps
@@ -42,10 +44,26 @@ async def run_turn_stream(
         session=session,
     )
 
-    async with agent.run_stream(user_message, deps=deps) as result:
-        async for text in result.stream_text():
-            yield text
+    try:
+        async with agent.run_stream(user_message, deps=deps) as result:
+            streamed = False
+            prev_text = ""
+            async for pa in result.stream_output():
+                streamed = True
+                text = pa.answer or ""
+                if text.startswith(prev_text) and len(text) > len(prev_text):
+                    yield text[len(prev_text):]
+                    prev_text = text
 
-    state.answer = result.get_output()
+            if not streamed:
+                answer = await result.get_output()
+                text = answer.answer or ""
+                if text:
+                    yield text
+    except (ModelAPIError, APIError):
+        yield "No pude generar la respuesta en este momento. Por favor vuelve a intentarlo."
+        return
+
+    state.answer = await result.get_output()
     GroundingValidator().validate(state.answer, state.retrieval.passages)
     state.passages = state.retrieval.passages
