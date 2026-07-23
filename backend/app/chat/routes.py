@@ -157,6 +157,11 @@ async def stream_chat(
         except ValueError as exc:
             yield stream_error(assistant_id, str(exc))
             return
+        except Exception as exc:
+            import logging
+            logging.getLogger("chat.routes").exception("Stream failed: %s", exc)
+            yield stream_error(assistant_id, "No pude generar la respuesta en este momento. Por favor vuelve a intentarlo.")
+            return
         yield stream_text_end(assistant_id)
 
     async def _save_assistant_with_citations() -> None:

@@ -21,14 +21,8 @@ export function MessageList({
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const visibleMessages = useMemo(() => {
-    const filtered = messages.filter((m) => m.role !== 'system')
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[MessageList diag] messages=', messages.map((m) => ({ id: m.id, role: m.role, parts: (m as any).parts })))
-      console.log('[MessageList diag] visibleMessages=', filtered.map((m) => ({ id: m.id, role: m.role, parts: (m as any).parts })))
-      console.log('[MessageList diag] status=', status, 'pipelineStatus=', pipelineStatus)
-    }
-    return filtered
-  }, [messages, status, pipelineStatus])
+    return messages.filter((m) => m.role !== 'system')
+  }, [messages])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })

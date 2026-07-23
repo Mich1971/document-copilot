@@ -36,8 +36,8 @@ export function Login() {
 
   return (
     <AuthLayout
-      title="Sign in"
-      description="Use your email and password to access Document Copilot."
+      title="Inicia sesión"
+      description="Utilice su correo y contraseña para accesar Document Copilot."
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="space-y-2">
@@ -49,7 +49,7 @@ export function Login() {
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@driftwood.com"
+            placeholder="usted@FiduciaPay.com"
           />
         </div>
 
@@ -72,7 +72,7 @@ export function Login() {
         ) : null}
 
         <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? 'Signing in…' : 'Sign in'}
+          {isSubmitting ? 'Inicio de Sesión…' : 'Sign in'}
         </Button>
       </form>
 

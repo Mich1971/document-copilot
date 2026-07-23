@@ -43,3 +43,4 @@ logs/
 # Claude
 .claude/
 /.kilo
+data/agent_service.py

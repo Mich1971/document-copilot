@@ -9,6 +9,7 @@ from typing import AsyncIterator
 from openai import APIError
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic_ai import ModelAPIError
+from pydantic_ai.exceptions import FallbackExceptionGroup
 
 from app.assistant.agent import agent
 from app.assistant.deps import DocumentAgentDeps
@@ -60,6 +61,9 @@ async def run_turn_stream(
                 text = answer.answer or ""
                 if text:
                     yield text
+    except FallbackExceptionGroup:
+        yield "No pude generar la respuesta en este momento. Por favor vuelve a intentarlo."
+        return
     except (ModelAPIError, APIError):
         yield "No pude generar la respuesta en este momento. Por favor vuelve a intentarlo."
         return

@@ -44,7 +44,7 @@ export function Dashboard() {
         setAuthState('authenticated')
       } catch (err) {
         if (!active) return
-        const messageText = err instanceof Error ? err.message : 'Unable to verify your session.'
+        const messageText = err instanceof Error ? err.message : 'Incapaz de verificar su sesión.'
         setError(messageText)
         setAuthState('error')
       }
@@ -68,7 +68,7 @@ export function Dashboard() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-sm font-medium uppercase tracking-[0.3em] text-muted-foreground">
-              Protected area
+              Area Protegida
             </p>
             <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
           </div>
@@ -85,9 +85,9 @@ export function Dashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Session verification</CardTitle>
+            <CardTitle>Verificacion de sesión</CardTitle>
             <CardDescription>
-              This screen proves the Supabase token is being sent to the backend.
+              Esta pantalla prueba que el token de Supabase esta siendo enviado al backend.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
@@ -100,7 +100,7 @@ export function Dashboard() {
                   Backend response
                 </p>
                 <pre className="overflow-x-auto whitespace-pre-wrap wrap-break-word text-xs text-foreground">
-{JSON.stringify(backendResponse, null, 2)}
+                  {JSON.stringify(backendResponse, null, 2)}
                 </pre>
               </div>
             ) : null}

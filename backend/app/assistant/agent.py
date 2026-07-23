@@ -6,6 +6,7 @@ from pathlib import Path
 
 from openai import APIError
 from pydantic_ai import Agent, RunContext, ModelAPIError
+from pydantic_ai.exceptions import ModelHTTPError
 from pydantic_ai.messages import ModelResponse
 from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.models.openai import OpenAIChatModel
@@ -34,6 +35,27 @@ def _is_bad_response(response: object) -> bool:
     return not text.strip() or len(text) < 10
 
 
+def _is_groq_tool_choice_error(exc: Exception) -> bool:
+    if not isinstance(exc, ModelHTTPError):
+        return False
+    if exc.status_code != 400:
+        return False
+    model_name = exc.model_name or ""
+    if not model_name.startswith("openai/gpt-oss-120b"):
+        return False
+    body = exc.body
+    if not isinstance(body, dict):
+        return False
+    error_body = body.get("error")
+    if not isinstance(error_body, dict):
+        return False
+    message = error_body.get("message", "")
+    if not isinstance(message, str):
+        return False
+    normalized = message.lower()
+    return "tool choice is required" in normalized and "did not call a tool" in normalized
+
+
 def _build_groq_model() -> OpenAIChatModel | None:
     if settings.groq_api_key is None:
         return None
@@ -60,6 +82,7 @@ model = FallbackModel(
         ModelAPIError,
         APIError,
         _is_bad_response,
+        _is_groq_tool_choice_error,
     ),
 )
 

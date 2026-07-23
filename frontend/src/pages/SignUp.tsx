@@ -22,12 +22,12 @@ export function SignUp() {
     setMessage(null)
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match.')
+      setError('Las Contraseñas no coinciden.')
       return
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters.')
+      setError('La Contraseña debe tener al menos 6 caracteres.')
       return
     }
 
@@ -50,13 +50,13 @@ export function SignUp() {
       return
     }
 
-    setMessage('Account created. Check your email to confirm your address, then sign in.')
+    setMessage('Cuenta creada. Verifique su correo para confirmar su direccion, luego inicie sesión.')
   }
 
   return (
     <AuthLayout
-      title="Create account"
-      description="Sign up with your work email to use Document Copilot."
+      title="Creacion de cuenta"
+      description="Registrese con su correo electronico para utilizar Document Copilot."
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="space-y-2">
@@ -68,7 +68,7 @@ export function SignUp() {
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@driftwood.com"
+            placeholder="usted@FiduciaPay.com"
           />
         </div>
 
@@ -109,7 +109,7 @@ export function SignUp() {
         ) : null}
 
         <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? 'Creating account…' : 'Create account'}
+          {isSubmitting ? 'Creando cuenta…' : 'Create account'}
         </Button>
       </form>
 
