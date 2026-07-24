@@ -30,7 +30,7 @@ class SourceDocument(Base, TimestampMixin):
     ticker: Mapped[str] = mapped_column(String(16), nullable=False)
     cik: Mapped[str] = mapped_column(String(10), nullable=False)
     company_name: Mapped[str | None] = mapped_column(String(255))
-    form: Mapped[str] = mapped_column(String(16), nullable=False)
+    form: Mapped[str] = mapped_column(String(64), nullable=False)
     filing_date: Mapped[date] = mapped_column(Date, nullable=False)
     report_date: Mapped[date | None] = mapped_column(Date)
     fiscal_year: Mapped[int | None] = mapped_column(Integer)

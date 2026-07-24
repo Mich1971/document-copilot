@@ -54,15 +54,15 @@ def test_stream_returns_valid_ndjson_text_chunks(client, monkeypatch):
 
     resp = client.post("/chats/stream", json=payload)
     assert resp.status_code == 200
-    assert resp.headers["content-type"].startswith("application/x-ndjson")
+    assert resp.headers["content-type"].startswith("text/event-stream")
 
-    lines = [line for line in resp.text.splitlines() if line.strip()]
+    lines = [line for line in resp.text.splitlines() if line.startswith("data: ")]
     assert len(lines) >= 3
 
-    start = json.loads(lines[0])
-    text_deltas = [json.loads(line) for line in lines if json.loads(line)["type"] == "text-delta"]
-    text_end = next(line for line in lines if json.loads(line)["type"] == "text-end")
-    text_end = json.loads(text_end)
+    events = [json.loads(line.split("data: ", 1)[1]) for line in lines]
+    start = next(e for e in events if e["type"] == "text-start")
+    text_deltas = [e for e in events if e["type"] == "text-delta"]
+    text_end = next(e for e in events if e["type"] == "text-end")
 
     assert start["type"] == "text-start"
     assert "id" in start

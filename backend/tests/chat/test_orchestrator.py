@@ -33,7 +33,7 @@ def _make_passage(chunk_id: uuid.UUID) -> Passage:
 
 
 def _make_mock_run_stream(answer: GroundedAnswer, partial_text: str) -> Callable:
-    def mock_run_stream(prompt, deps):
+    def mock_run_stream(prompt, deps, **kwargs):
         result = MagicMock()
 
         partial = GroundedAnswer(
