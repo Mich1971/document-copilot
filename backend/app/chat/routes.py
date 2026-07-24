@@ -26,7 +26,14 @@ from app.chat.schemas import (
     ThreadSchema,
     UIMessageOut,
 )
-from app.chat.streaming import stream_error, stream_text_delta, stream_text_end, stream_text_start
+from app.chat.streaming import (
+    stream_error,
+    stream_finish,
+    stream_start,
+    stream_text_delta,
+    stream_text_end,
+    stream_text_start,
+)
 from app.database.base import get_session
 from app.database.models.chat_message import ChatMessage
 from app.database.models.chat_thread import ChatThread
@@ -116,7 +123,8 @@ async def stream_chat(
     session: AsyncSession = Depends(get_session),
 ) -> StreamingResponse:
     """
-    Stream a chat response in the AI SDK Data Stream Protocol (NDJSON).
+    Stream a chat response using the AI SDK v5 UI Message Stream protocol
+    (Server-Sent Events, not raw NDJSON).
     """
     await get_or_create_user(session, current_user.id, current_user.email)
 
@@ -143,6 +151,7 @@ async def stream_chat(
     turn_state = orchestrator.TurnState()
 
     async def stream_generator():
+        yield stream_start()
         yield stream_text_start(assistant_id)
         try:
             async for delta in orchestrator.run_turn_stream(
@@ -155,14 +164,17 @@ async def stream_chat(
                 buffer.append(delta)
                 yield stream_text_delta(assistant_id, delta)
         except ValueError as exc:
-            yield stream_error(assistant_id, str(exc))
+            yield stream_error(str(exc))
+            yield stream_finish()
             return
         except Exception as exc:
             import logging
             logging.getLogger("chat.routes").exception("Stream failed: %s", exc)
-            yield stream_error(assistant_id, "No pude generar la respuesta en este momento. Por favor vuelve a intentarlo.")
+            yield stream_error("No pude generar la respuesta en este momento. Por favor vuelve a intentarlo.")
+            yield stream_finish()
             return
         yield stream_text_end(assistant_id)
+        yield stream_finish()
 
     async def _save_assistant_with_citations() -> None:
         try:
@@ -180,7 +192,12 @@ async def stream_chat(
 
     return StreamingResponse(
         stream_generator(),
-        media_type="application/x-ndjson",
+        media_type="text/event-stream",
+        headers={
+            "x-vercel-ai-ui-message-stream": "v1",
+            "cache-control": "no-cache",
+            "connection": "keep-alive",
+        },
     )
 
 

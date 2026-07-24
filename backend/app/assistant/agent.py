@@ -101,7 +101,9 @@ async def search_filings(ctx: RunContext[DocumentAgentDeps], query: str) -> str:
         return "No se encontraron pasajes relevantes en el corpus."
     lines = []
     for p in passages[:5]:
-        lines.append(f"[{p.ticker}] {p.form} ({p.filing_date}): {p.text[:500]}")
+        lines.append(
+            f"chunk_id={p.chunk_id} | [{p.ticker}] {p.form} ({p.filing_date}): {p.text[:500]}"
+        )
     return "\n\n".join(lines)
 
 

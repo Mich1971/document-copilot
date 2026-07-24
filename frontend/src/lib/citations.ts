@@ -18,9 +18,9 @@ export interface PipelineStatus {
 export type PipelineStatusState = PipelineStatus | null
 
 interface CitationPart {
-  type: 'citation'
+  type: 'data-citation'
   id: string
-  citation: {
+  data: {
     chunkId: string
     chunkIndex: number | null
     excerpt: string
@@ -34,21 +34,23 @@ interface CitationPart {
 }
 
 interface SourceDocumentPart {
-  type: 'source'
-  sourceType: 'document'
-  documentId: string
-  documentTitle: string
-  chunkIndex: number
-  content: string
-  score: number
+  type: 'data-source'
+  data: {
+    sourceType: 'document'
+    documentId: string
+    documentTitle: string
+    chunkIndex: number
+    content: string
+    score: number
+  }
 }
 
 function isCitationPart(part: unknown): part is CitationPart {
   return (
     typeof part === 'object' &&
     part !== null &&
-    (part as CitationPart).type === 'citation' &&
-    'citation' in (part as Record<string, unknown>)
+    (part as CitationPart).type === 'data-citation' &&
+    'data' in (part as Record<string, unknown>)
   )
 }
 
@@ -56,8 +58,8 @@ function isSourceDocumentPart(part: unknown): part is SourceDocumentPart {
   return (
     typeof part === 'object' &&
     part !== null &&
-    (part as Record<string, unknown>).type === 'source' &&
-    (part as Record<string, unknown>).sourceType === 'document'
+    (part as Record<string, unknown>).type === 'data-source' &&
+    (part as SourceDocumentPart).data?.sourceType === 'document'
   )
 }
 
@@ -68,7 +70,7 @@ export function extractCitations(messages: UIMessage[]): CitationPayload[] {
     if (message.role === 'assistant' && message.parts) {
       for (const part of message.parts) {
         if (isCitationPart(part)) {
-          const c = (part as CitationPart).citation
+          const c = (part as CitationPart).data
           citations.push({
             citationIndex: citations.length,
             documentId: c.chunkId,
@@ -78,7 +80,7 @@ export function extractCitations(messages: UIMessage[]): CitationPayload[] {
             score: 0,
           })
         } else if (isSourceDocumentPart(part)) {
-          const sourcePart = part as SourceDocumentPart
+          const sourcePart = (part as SourceDocumentPart).data
           citations.push({
             citationIndex: citations.length,
             documentId: sourcePart.documentId,
