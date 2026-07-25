@@ -44,7 +44,7 @@ export function MessageList({
         </svg>
         <p className="text-lg font-medium text-foreground">Inicia una conversación</p>
         <p className="text-sm mt-1 max-w-sm">
-          Pregunta sobre los archivos SEC. Las citas aparecerán aquí.
+          Pregunta sobre los archivos. Las citas aparecerán aquí.
         </p>
       </div>
     )

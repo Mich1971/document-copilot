@@ -31,7 +31,7 @@ export function ChatEmptyPage() {
             ¿En qué puedo ayudarte con tus archivos?
           </h1>
           <p className="max-w-md text-sm text-muted-foreground">
-            Pregunta sobre los archivos SEC. Cada respuesta está fundamentada en documentos
+            Pregunta sobre los archivos. Cada respuesta está fundamentada en documentos
             fuente con citas verificables.
           </p>
         </div>

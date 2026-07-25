@@ -39,7 +39,7 @@ export function useChatTransport(
         setPipelineStatus({
           stage: 'generation',
           progress: 0.5,
-          message: 'Generating response…',
+          message: 'Generando respuesta…',
         })
         try {
           const res = await fetch(url, options)

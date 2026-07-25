@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from openai import APIError
@@ -10,7 +11,9 @@ from pydantic_ai.exceptions import ModelHTTPError
 from pydantic_ai.messages import ModelResponse
 from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.cohere import CohereProvider
 from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.models.cohere import CohereModel
 
 from app.assistant.deps import DocumentAgentDeps
 from app.assistant.outputs import GroundedAnswer
@@ -22,6 +25,8 @@ from sqlalchemy import select
 
 settings = get_settings()
 INSTRUCTIONS_PATH = Path(__file__).with_name("instructions.md")
+
+logger = logging.getLogger(__name__)
 
 
 def _load_instructions() -> str:
@@ -41,7 +46,7 @@ def _is_groq_tool_choice_error(exc: Exception) -> bool:
     if exc.status_code != 400:
         return False
     model_name = exc.model_name or ""
-    if not model_name.startswith("openai/gpt-oss-120b"):
+    if not model_name.startswith("llama-3.3-70b-versatile"):
         return False
     body = exc.body
     if not isinstance(body, dict):
@@ -60,21 +65,30 @@ def _build_groq_model() -> OpenAIChatModel | None:
     if settings.groq_api_key is None:
         return None
     return OpenAIChatModel(
-        "openai/gpt-oss-120b",
+        "llama-3.3-70b-versatile",
         provider=OpenAIProvider(
             base_url="https://api.groq.com/openai/v1",
             api_key=settings.groq_api_key.get_secret_value(),
         ),
     )
 
+def _build_cohere_model() -> CohereModel | None:
+    if settings.cohere_api_key is None:
+        return None
+    return CohereModel(
+        "command-a-03-2025",
+        provider=CohereProvider(api_key=settings.cohere_api_key.get_secret_value()),
+    )
+
 
 groq_model = _build_groq_model()
-fallback_models = [
-    "openrouter:nvidia/nemotron-3-super-120b-a12b:free",
-    "openrouter:openai/gpt-oss-20b:free",
-]
+cohere_model = _build_cohere_model()
+fallback_models = ["openrouter:nvidia/nemotron-3-super-120b-a12b:free"]
 if groq_model is not None:
     fallback_models.append(groq_model)
+fallback_models.append("openrouter:openai/gpt-oss-20b:free")
+if cohere_model is not None:
+    fallback_models.append(cohere_model)
 
 model = FallbackModel(
     *fallback_models,
@@ -91,11 +105,13 @@ agent = Agent[DocumentAgentDeps, GroundedAnswer](
     model=model,
     instructions=_load_instructions(),
     output_type=GroundedAnswer,
+    retries={"tools": 3, "output": 3},
 )
 
 
 @agent.tool
 async def search_filings(ctx: RunContext[DocumentAgentDeps], query: str) -> str:
+    logger.info("search_filings called with query=%r", query)
     passages: list[Passage] = ctx.deps.passages
     if not passages:
         return "No se encontraron pasajes relevantes en el corpus."
@@ -126,6 +142,42 @@ async def read_chunk(ctx: RunContext[DocumentAgentDeps], chunk_id: str) -> str:
     if row is None:
         return "Chunk no encontrado."
     return f"[{row.ticker}] {row.form}: {row.text}"
+
+@agent.tool
+async def read_chunks(ctx: RunContext[DocumentAgentDeps], chunk_ids: list[str]) -> str:
+    """Lee varios chunks en una sola llamada, en vez de uno a la vez con read_chunk."""
+    import uuid as uuid_mod
+
+    valid_ids: list[uuid_mod.UUID] = []
+    invalid_raw: list[str] = []
+    for raw_id in chunk_ids:
+        try:
+            valid_ids.append(uuid_mod.UUID(raw_id))
+        except ValueError:
+            invalid_raw.append(raw_id)
+
+    if not valid_ids:
+        return "Ningún ID de chunk válido fue proporcionado."
+
+    session = ctx.deps.session
+    stmt = (
+        select(DocumentChunk.id, DocumentChunk.text, SourceDocument.ticker, SourceDocument.form)
+        .join(SourceDocument, DocumentChunk.document_id == SourceDocument.id)
+        .where(DocumentChunk.id.in_(valid_ids))
+    )
+    result = await session.execute(stmt)
+    rows = result.all()
+
+    found_ids = {row.id for row in rows}
+    lines = [f"[{row.ticker}] {row.form}: {row.text}" for row in rows]
+
+    missing_ids = [str(cid) for cid in valid_ids if cid not in found_ids]
+    if missing_ids:
+        lines.append(f"No encontrados: {', '.join(missing_ids)}")
+    if invalid_raw:
+        lines.append(f"IDs inválidos (formato incorrecto): {', '.join(invalid_raw)}")
+
+    return "\n\n".join(lines) if lines else "No se encontró ninguno de los chunks solicitados."
 
 
 @agent.tool

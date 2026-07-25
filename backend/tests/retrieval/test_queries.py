@@ -10,19 +10,31 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.retrieval.queries import _sanitize_query, lexical_search, semantic_search
+from app.retrieval.queries import _filter_stop_words, _prepare_websearch_query, lexical_search, semantic_search
 
 
-def test_sanitize_query_basic():
-    assert _sanitize_query("Hola mundo") == "hola:* & mundo:*"
+def test_prepare_websearch_query_preserves_numbers():
+    assert _prepare_websearch_query("10-K revenue growth") == "10-K revenue growth"
 
 
-def test_sanitize_query_empty():
-    assert _sanitize_query("") == ""
+def test_prepare_websearch_query_collapses_whitespace():
+    assert _prepare_websearch_query("  Apple   10-K  ") == "Apple 10-K"
 
 
-def test_sanitize_query_special_chars():
-    assert _sanitize_query("¿Cómo estás?") == "cómo:* & estás:*"
+def test_prepare_websearch_query_removes_stop_words():
+    assert _prepare_websearch_query("What are the risks") == "risks"
+
+
+def test_prepare_websearch_query_empty_after_filter():
+    assert _prepare_websearch_query("the a an") == ""
+
+
+def test_prepare_websearch_query_empty_string():
+    assert _prepare_websearch_query("") == ""
+
+
+def test_filter_stop_words_basic():
+    assert _filter_stop_words("the quick brown fox") == "quick brown fox"
 
 
 def _make_mock_row(row_id, score):

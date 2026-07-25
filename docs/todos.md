@@ -12,10 +12,10 @@ Work top to bottom. Each phase unlocks the next. Check items off as you go.
 | 1. Supabase + sample data         | Everything persists here; you need a project and a corpus to test against.                                             |
 | 2. Backend schema + migrations    | Auth, chat, retrieval, and citations all depend on the data model.                                                     |
 | 3. Thin vertical slices           | Wire auth, then a stubbed chat stream, then real RAG — each slice touches frontend + backend together.                 |
-| 4. Frontend in parallel (lightly) | Scaffold the SPA early, but don't build citation UI or chat polish until the backend can return real grounded answers. |
+| 4. Frontend in parallel (lightly) | Scaffold the SPA early, but do not build citation UI or chat polish until the backend can return real grounded answers. |
 
 
-The critical path is **data model → ingestion → retrieval → LLM → citations**. The frontend is mostly a streaming chat shell with auth and citation display — it shouldn't get far ahead of working APIs.
+The critical path is **data model → ingestion → retrieval → LLM → citations**. The frontend is mostly a streaming chat shell with auth and citation display — it should not get far ahead of working APIs.
 
 ---
 
@@ -50,9 +50,10 @@ Goal: a running FastAPI service with a migrated Supabase schema.
   - [x] `create extension if not exists vector`
   - [x] `vector(1536)` embedding column
   - [x] generated `tsvector` column on chunks
-  - [x] HNSW index (`vector(1536)` en migraci�n inicial; luego migrado a `vector(2048)` con �ndice funcional `halfvec(2048)` para soportar >2000 dims)
-  - [x] Recrear columna search_vector (tsvector) + GIN index; se perdió en migración 2c718e53341 (migración 5854003476ac)
+  - [x] HNSW index (`vector(1536)` en migración inicial; luego migrado a `vector(2048)` con índice funcional `halfvec(2048)` para soportar >2000 dims)
+  - [x] Recrear columna search_vector (tsvector) + GIN index; se perdió en migración 2c718e53341 (migración 5854003476ac)
   - [x] RLS policies (users see only their own chats)
+  - [x] Migración `alter_form_to_varchar_64`: widens `form` a `String(64)` en `source_documents` y `message_citations`
 - [x] `uv run alembic upgrade head` against Supabase direct connection
 - [x] `app/database/supabase.py` — user-scoped and service-role clients
 - [x] Verify: `uv run uvicorn app.main:app --reload` → health check returns 200
@@ -107,25 +108,25 @@ Goal: end-to-end chat UI streaming from FastAPI, no real retrieval yet.
 
 
 
-## Phase 4 � Ingestion pipeline
+## Phase 4 — Ingestion pipeline
 
 Goal: documents in the corpus are parsed, chunked, embedded, and stored in Supabase.
 
-- [x] data/convert_pdfs_to_docling.py � PDF ? DoclingDocument JSON pipeline
-- [x] data/doclingdocuments/manifest.json � conversion manifest for UI-driven ingestion
-- [x] uploaded_documents table + SQLAlchemy model for locally uploaded PDFs
-- [x] Alembic migration 2c718e53341_add_uploaded_documents (includes uploaded_documents + document_tables)
-- [x] Ingestion API routes: GET/POST /ingest/documents, PATCH /ingest/documents/{id}
+- [x] `data/convert_pdfs_to_docling.py` — PDF → DoclingDocument JSON pipeline
+- [x] `data/doclingdocuments/manifest.json` — conversion manifest for UI-driven ingestion
+- [x] `uploaded_documents` table + SQLAlchemy model for locally uploaded PDFs
+- [x] Alembic migration `2c718e53341_add_uploaded_documents` (includes `uploaded_documents` + `document_tables`)
+- [x] Ingestion API routes: GET/POST `/ingest/documents`, PATCH `/ingest/documents/{id}`
 - [x] Chunking strategy: Docling HybridChunker (max 800 tokens), page/section metadata
-- [x] Write source_documents rows con metadata de documentos locales
-- [x] Write document_chunks rows con text + metadata + embeddings
+- [x] Write `source_documents` rows con metadata de documentos locales
+- [x] Write `document_chunks` rows con text + metadata + embeddings
 - [x] OpenRouter embedding generation (`nvidia/nemotron-3-embed-1b:free`) → `vector(2048)` per chunk
-- [x] Recrear search_vector (tsvector) + GIN index (migración 5854003476ac, config spanish)
+- [x] Recrear `search_vector` (tsvector) + GIN index (migración `5854003476ac`, config spanish)
 - [x] Idempotent re-run: comportamiento **replace** por documento (borra chunks anteriores, inserta nuevos)
-- [x] Unit tests: chunking logic, metadata extraction (tests/ingest/test_chunking.py, 5 tests)
+- [x] Unit tests: chunking logic, metadata extraction (`tests/ingest/test_chunking.py`, 5 tests)
 - [x] Run ingestion on sample corpus (12 PDFs locales)
 - [x] Verify: 60 chunks con embeddings de 2048 dims en Supabase; smoke test de 1 chunk exitoso
-- [x] �ndice HNSW funcional ix_document_chunks_embedding_hnsw_halfvec sobre CAST(embedding AS halfvec(2048)) para superar l�mite de pgvector 0.8.x con >2000 dims
+- [x] Índice HNSW funcional `ix_document_chunks_embedding_hnsw_halfvec` sobre `CAST(embedding AS halfvec(2048))` para superar límite de pgvector 0.8.x con >2000 dims
 
 ---
 
@@ -139,7 +140,7 @@ Goal: a user question returns ranked, relevant source passages.
 - [x] `retrieval/queries.py` — Postgres full-text search over `search_vector` (spanish config)
 - [x] `retrieval/fusion.py` — Reciprocal Rank Fusion in Python
 - [x] `retrieval/retriever.py` — query → fused ranked passages + neighbor chunks
-- [x] Unit tests: fusion ranking, query assembly (mock DB) (tests/retrieval/, 12 tests)
+- [x] Unit tests: fusion ranking, query assembly (mock DB) (`tests/retrieval/`, 12 tests)
 - [ ] Integration test (optional, `@pytest.mark.integration`): real query against ingested corpus
 - [ ] Verify: test queries from client brief return relevant chunks (user provides questions when required)
 
@@ -156,10 +157,12 @@ Goal: grounded answers with enforced citations — the core product contract.
 - [x] Agent tools: `search_filings`, `read_chunk`, `read_surrounding_chunks`
 - [x] `chat/orchestrator.py` — one turn: retrieve → agent → validate → stream → persist
 - [x] `grounding/validator.py` — every citation maps to a retrieved passage; fail closed on violation
-- [x] `chat/streaming.py` — AI SDK-compatible stream (text deltas + citation metadata parts)
+- [x] `chat/streaming.py` — AI SDK v5 SSE stream (text deltas + citation metadata parts)
 - [x] Persist `message_citations` linked to assistant messages
-- [x] Unit tests: citation validation, grounding enforcement, message conversion (tests/assistant/, tests/grounding/, tests/chat/, 24 tests)
+- [x] Unit tests: citation validation, grounding enforcement, message conversion (`tests/assistant/`, `tests/grounding/`, `tests/chat/`, 35 tests)
 - [x] Fallback AI model chain: OpenRouter free models first, Groq `openai/gpt-oss-120b` as tertiary fallback via OpenAI-compatible endpoint
+- [x] Groq tool-choice error handling: detect `ModelHTTPError` 400 específico y saltar al siguiente modelo
+- [x] Stream hardening: idle timeout 45s, request limit 8, empty-answer guard, SSE protocol compliance
 - [ ] Verify against [client-brief example questions](client-brief.md#example-analyst-questions):
   - [ ] Answers cite specific filings and pages
   - [ ] Under-specified questions get "not enough evidence" responses
@@ -173,12 +176,12 @@ Goal: grounded answers with enforced citations — the core product contract.
 
 Goal: analysts can verify every claim in one click — this is what makes the product usable.
 
-- [ ] Citation chips/links on assistant messages (company, filing type, date, page/section)
-- [ ] Source passage panel — show underlying excerpt for selected citation
-- [ ] Empty states (no threads, no corpus match)
-- [ ] Error states (auth expired, retrieval failure, grounding failure, network/CORS)
-- [ ] Loading/streaming status during assistant run
-- [ ] Verify: click a citation → see the exact passage from the filing
+- [x] Citation chips/links on assistant messages (company, filing type, date, page/section)
+- [x] Source passage panel — show underlying excerpt for selected citation
+- [x] Empty states (no threads, no corpus match)
+- [x] Error states (auth expired, retrieval failure, grounding failure, network/CORS)
+- [x] Loading/streaming status during assistant run
+- [x] Verify: click a citation → see the exact passage from the filing
 
 ---
 
@@ -201,6 +204,8 @@ Goal: 5 senior analysts can use it for a week and report ≥3 hours saved per an
 
 
 ## Phase 9 — Deployment (OCI)
+
+Goal: production-ready deployment on Oracle Cloud Infrastructure.
 
 - [ ] OCI: backend service (Uvicorn, env vars, `ALLOWED_ORIGINS`)
 - [ ] OCI: frontend service (Vite build, `VITE_*` env vars at build time)

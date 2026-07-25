@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     openai_embedding_dimensions: int = Field(default=2048, ge=1)
     openrouter_api_key: SecretStr | None = None
     groq_api_key: SecretStr | None = None
+    cohere_api_key: SecretStr | None = None
 
     allowed_origins_raw: str = Field(
         default="http://localhost:5173",

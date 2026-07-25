@@ -44,3 +44,4 @@ logs/
 .claude/
 /.kilo
 data/agent_service.py
+backend/app/assistant/instructions2.md
