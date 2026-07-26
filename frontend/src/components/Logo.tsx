@@ -1,3 +1,5 @@
+import React from 'react'
+
 interface LogoMarkProps {
   className?: string
 }
@@ -5,18 +7,30 @@ interface LogoMarkProps {
 export function LogoMark({ className = 'size-8' }: LogoMarkProps) {
   return (
     <svg
-      className={`${className} text-primary`}
-      viewBox="0 0 24 24"
+      className={className}
+      viewBox="0 0 32 32"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
+      aria-label="FiduciaPay Logo"
     >
-      <rect x="2" y="2" width="20" height="20" rx="5" stroke="currentColor" strokeWidth="2" />
       <path
-        d="M7 17V7H10C12.5 7 14 8.5 14 11C14 13.5 12.5 15 10 15H9V17H7Z"
-        fill="currentColor"
-        className="text-primary/95"
+        d="M16 2L2 9V23L16 30L30 23V9L16 2Z"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinejoin="round"
       />
-      <circle cx="16.5" cy="16.5" r="1.5" fill="currentColor" className="animate-pulse" />
+      <path
+        d="M16 8V24"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M9 12L23 20"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
     </svg>
   )
 }

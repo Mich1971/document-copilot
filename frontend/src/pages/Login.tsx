@@ -1,14 +1,18 @@
-import { useState, type FormEvent } from 'react'
+import React, { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { AuthLayout } from '@/components/AuthLayout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { BetaCredentials } from '@/components/auth/BetaCredentials'
 import { supabase } from '@/lib/supabase'
+import { env } from '@/lib/env'
+import { useTranslation } from '@/hooks/useTranslation'
 
 export function Login() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -36,12 +40,12 @@ export function Login() {
 
   return (
     <AuthLayout
-      title="Inicia sesión"
-      description="Utilice su correo y contraseña para accesar Document Copilot."
+      title={t.auth.signIn}
+      description={t.auth.signInDesc}
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">{t.auth.email}</Label>
           <Input
             id="email"
             type="email"
@@ -49,12 +53,12 @@ export function Login() {
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="usted@FiduciaPay.com"
+            placeholder="usted@fiduciapay.com"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">{t.auth.password}</Label>
           <Input
             id="password"
             type="password"
@@ -66,20 +70,22 @@ export function Login() {
         </div>
 
         {error ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p className="text-sm font-medium text-destructive" role="alert">
             {error}
           </p>
         ) : null}
 
         <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? 'Inicio de Sesión…' : 'Sign in'}
+          {isSubmitting ? t.auth.signingIn : t.auth.signIn}
         </Button>
       </form>
 
-      <p className="mt-4 text-center text-sm text-muted-foreground">
-        Need an account?{' '}
-        <Link to="/signup" className="text-foreground underline-offset-4 hover:underline">
-          Sign up
+      {env.showBetaCredentials && <BetaCredentials />}
+
+      <p className="mt-6 text-center text-sm text-muted-foreground">
+        {t.auth.noAccount}{' '}
+        <Link to="/signup" className="text-foreground font-medium underline-offset-4 hover:underline">
+          {t.auth.signUp}
         </Link>
       </p>
     </AuthLayout>
