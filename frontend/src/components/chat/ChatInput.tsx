@@ -3,6 +3,7 @@ import { Send, Square } from 'lucide-react'
 import type { ChatStatus } from 'ai'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from '@/hooks/useTranslation'
 
 interface ChatInputProps {
   status: ChatStatus
@@ -11,6 +12,7 @@ interface ChatInputProps {
 }
 
 export function ChatInput({ status, onSend, onStop }: ChatInputProps) {
+  const { t } = useTranslation()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [input, setInput] = useState('')
 
@@ -32,52 +34,54 @@ export function ChatInput({ status, onSend, onStop }: ChatInputProps) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
         const form = e.currentTarget.form
-        if (form) {
-          form.requestSubmit()
-        }
+        if (form) form.requestSubmit()
       }
     },
     [],
   )
 
   return (
-    <div className="w-full border-t border-border bg-background/80 backdrop-blur-md p-4">
-      <form onSubmit={handleSubmit} className="max-w-3xl mx-auto flex gap-3 items-end">
-        <div className="relative flex-1 bg-muted/50 hover:bg-muted/80 focus-within:bg-muted focus-within:ring-2 focus-within:ring-primary/20 rounded-2xl border border-border/60 transition-all duration-200">
-          <Textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={isPending ? 'Generando respuesta…' : 'Pregunta sobre los archivos…'}
-            disabled={isPending}
-            className="min-h-[48px] max-h-[200px] resize-none w-full bg-transparent border-0 ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 px-4 py-3 text-sm"
-            rows={1}
-          />
-        </div>
+    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pt-10 pb-6 px-4">
+      <form
+        onSubmit={handleSubmit}
+        className="mx-auto max-w-3xl relative flex items-end gap-2 rounded-2xl border border-border bg-background p-2 shadow-lg shadow-black/5 dark:shadow-black/20 focus-within:ring-1 focus-within:ring-ring transition-shadow"
+      >
+        <Textarea
+          ref={textareaRef}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={isPending ? t.chat.generating : t.chat.placeholder}
+          disabled={isPending}
+          className="min-h-[44px] max-h-[200px] resize-none w-full border-0 bg-transparent px-3 py-3 text-sm shadow-none focus-visible:ring-0"
+          rows={1}
+        />
 
         {isPending ? (
           <Button
             type="button"
             onClick={onStop}
             size="icon"
-            className="h-[48px] w-[48px] rounded-2xl shrink-0 bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all duration-200"
-            aria-label="Detener generación"
+            className="mb-1 mr-1 h-8 w-8 shrink-0 rounded-xl bg-muted text-muted-foreground hover:bg-muted hover:text-foreground"
           >
-            <Square className="h-4 w-4 fill-current animate-pulse" />
+            <Square className="h-3.5 w-3.5 fill-current" />
           </Button>
         ) : (
           <Button
             type="submit"
             disabled={!input.trim()}
             size="icon"
-            className="h-[48px] w-[48px] rounded-2xl shrink-0 bg-primary hover:bg-primary/95 hover:scale-[1.02] active:scale-[0.98] disabled:scale-100 disabled:opacity-50 disabled:pointer-events-none transition-all duration-200"
-            aria-label="Enviar mensaje"
+            className="mb-1 mr-1 h-8 w-8 shrink-0 rounded-xl transition-transform active:scale-95"
           >
-            <Send className="h-4 w-4" />
+            <Send className="h-3.5 w-3.5" />
           </Button>
         )}
       </form>
+      <div className="mx-auto max-w-3xl mt-2 text-center">
+        <p className="text-[10px] text-muted-foreground">
+          Document Copilot puede cometer errores. Verifica la información en los documentos fuente.
+        </p>
+      </div>
     </div>
   )
 }
