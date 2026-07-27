@@ -40,6 +40,7 @@ def test_retriever_returns_result(monkeypatch):
     chunk_row = _make_chunk_row(id=chunk_id, chunk_index=0)
 
     mock_session = MagicMock(spec=AsyncSession)
+    mock_session.bind = MagicMock()
 
     semantic_rows = [(chunk_id, 0.9)]
     lexical_rows = [(chunk_id, 0.8)]
@@ -73,6 +74,7 @@ def test_retriever_neighbor_expansion(monkeypatch):
     neighbor_row = _make_chunk_row(id=uuid.uuid4(), chunk_index=2)
 
     mock_session = MagicMock(spec=AsyncSession)
+    mock_session.bind = MagicMock()
 
     semantic_rows = [(chunk_id, 0.9)]
     lexical_rows = []

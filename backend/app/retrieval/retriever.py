@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 
 from sqlalchemy import select
@@ -21,8 +22,11 @@ class DocumentRetriever:
         self._session = session
 
     async def search(self, query: str, top_k: int = 10) -> RetrievalResult:
-        semantic = await semantic_search(self._session, query, k=50)
-        lexical = await lexical_search(self._session, query, k=50)
+        async with AsyncSession(self._session.bind) as new_session:
+            semantic, lexical = await asyncio.gather(
+                semantic_search(self._session, query, k=50),
+                lexical_search(new_session, query, k=50),
+            )
 
         fused = reciprocal_rank_fusion(semantic, lexical, k=60)
         top_fused = fused[:top_k]
