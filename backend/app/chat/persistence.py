@@ -137,8 +137,8 @@ async def persist_citations(
     citations: list[Citation],
 ) -> None:
     """Persist citation rows linked to an assistant message."""
-    for index, citation in enumerate(citations):
-        citation_row = MessageCitation(
+    citation_rows = [
+        MessageCitation(
             message_id=message_id,
             chunk_id=citation.chunk_id,
             citation_index=index,
@@ -150,4 +150,6 @@ async def persist_citations(
             page=citation.page,
             section=citation.section,
         )
-        session.add(citation_row)
+        for index, citation in enumerate(citations)
+    ]
+    session.add_all(citation_rows)
